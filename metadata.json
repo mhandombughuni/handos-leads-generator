@@ -1,0 +1,6 @@
+{
+  "name": "Handos Lead Engine - Digital Presence & Intake Funnel",
+  "description": "Automated prospecting, Google search web-template discovery, 3-step value audit outreach sequences, A/B testing, and ROI performance analytics for Handos SaaS.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
