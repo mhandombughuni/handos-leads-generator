@@ -1,0 +1,15 @@
+export type EventType = 'delivered' | 'open' | 'click' | 'reply' | 'bounce' | 'unsubscribe' | 'booked-demo';
+export type Variant = 'A' | 'B';
+export type Signals = { hasWebsite: boolean | null; https?: boolean; mobile?: boolean; clearCTA?: boolean; intakeForm?: boolean; booking?: boolean; integratedWorkflow?: boolean; staleDesign?: boolean };
+export type Audit = { presence: number | null; conversion: number | null; workflow: number | null; opportunity: number | null; classification: string; findings: string[]; source: 'demo' | 'observed' | 'unverified'; assessedAt: string };
+export type ListingEvidence = { categories: string[]; address?: string; phone?: string; rating?: number; reviews?: number; status?: string; fetchedAt: string };
+export type Qualification = { nicheId: string; nicheLabel: string; score: number; status: 'priority'|'review'|'exclude'; matchedNiche: boolean; evidence: string[]; cautions: string[]; buyer: string; offer: string; pilot: string; assessedAt: string };
+export type SalesReadiness = { decisionMaker: boolean; needConfirmed: boolean; budgetConfirmed: boolean; timelineConfirmed: boolean; updatedAt: string };
+export type EmailCandidate = {email:string;firstName:string;lastName:string;position:string;provider:'public-page'|'hunter';sources:string[]};
+export type Lead = { emailCandidates?:EmailCandidate[]; emailDiscovery?:{checkedAt:string;status:'found'|'not-found'|'incomplete';notice:string}; websiteInspection?: import('./website-inspection').WebsiteInspection; contactVerification?: {status:'verified';email:string;provider:string;identityConfirmed:boolean;source:string;verifiedAt:string}; presence?: import('./presence').PresenceEvidence; listing?: ListingEvidence; qualification?: Qualification; salesReadiness?: SalesReadiness; id: string; company: string; firstName: string; email: string | null; industry: string; city: string; state: string; zip: string; website: string | null; source: string; signals: Signals; audit: Audit; createdAt: string };
+export type Campaign = { id: string; name: string; category: string; cost: number; demoValue: number; createdAt: string };
+export type Enrollment = { id: string; leadId: string; campaignId: string; variant: Variant; status: string; nextStep: number; nextDueAt: string; createdAt: string };
+export type Message = { id: string; enrollmentId: string; step: number; variant: Variant; subject: string; body: string; sentAt: string };
+export type TrackingEvent = { id: string; externalId: string; messageId: string; type: EventType; occurredAt: string; revenue: number };
+export type SearchInput = { locationType: 'zip' | 'city' | 'state'; location: string; industry: string; nicheId?: string; excludeLarge?: boolean; excludeTerms?: string };
+export type Metrics = { sent: number; delivered: number; open: number; click: number; reply: number; bounce: number; unsubscribe: number; booked: number; ctr: number; bounceRate: number; replyRate: number; conversionRate: number; openRate: number; cost: number; revenue: number; roi: number | null };

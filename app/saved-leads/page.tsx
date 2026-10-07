@@ -1,0 +1,35 @@
+'use client';
+import Link from 'next/link';
+import { useState } from 'react';
+import { FolderHeart } from 'lucide-react';
+import { api, Badge, Loading, Notice, PageTitle, useData } from '@/components/ui';
+import { SaveLeadButton } from '@/components/save-lead-button';
+import { presenceLabel } from '@/lib/opportunity';
+import { renderMessage } from '@/lib/sequence';
+import type { CampaignSequence } from '@/lib/campaign-sequence';
+import type { Campaign, Lead } from '@/lib/types';
+type Saved={leads:(Lead&{savedAt:string})[]};
+export default function SavedLeads(){
+ const {data,error,setData}=useData<Saved>('/api/saved-leads');
+ const [query,setQuery]=useState(''),[industry,setIndustry]=useState('All industries'),[failure,setFailure]=useState('');
+ const {data:campaigns}=useData<{campaigns:Campaign[]}>('/api/campaigns');
+ const {data:settings}=useData<{email:{provider:string;ready:boolean;enabled:boolean}}>('/api/settings');
+ const [selected,setSelected]=useState<string[]>([]),[campaign,setCampaign]=useState('campaign-1'),[busy,setBusy]=useState(false),[review,setReview]=useState(false),[notice,setNotice]=useState(''),[results,setResults]=useState<{leadId:string;enrollmentId?:string;status?:string;error?:string}[]>([]);
+ const {data:templates}=useData<{sequence:CampaignSequence}>('/api/campaigns/'+campaign+'/sequence');
+ const chosen=(data?.leads||[]).filter(l=>selected.includes(l.id));
+ const live=settings?.email.provider==='sendgrid';
+ const preview=chosen[0]&&renderMessage(1,'A',chosen[0],templates?.sequence);
+ async function launch(action:'queue'|'send'){
+  setBusy(true);setFailure('');setNotice('');try{const response=await api<{results:typeof results;notice:string;delivery?:{notice?:string}}>('/api/saved-leads/campaign',{leadIds:chosen.map(l=>l.id),campaignId:campaign,action});setResults(response.results);setNotice(response.notice+' '+(response.delivery?.notice||''));setReview(false);}catch(e){setFailure((e as Error).message);}finally{setBusy(false);}
+ }
+ const leads=(data?.leads||[]).filter(l=>(industry==='All industries'||l.industry===industry)&&[l.company,l.city,l.state,l.listing?.address,l.email].filter(Boolean).join(' ').toLowerCase().includes(query.toLowerCase()));
+ function refresh(){api<Saved>('/api/saved-leads').then(setData).catch(e=>setFailure(e.message));}
+ return <><PageTitle eyebrow="PROSPECTING / SAVED LEADS" title="Saved leads" description="Your shortlist for later outreach. Select a shortlist for a personalized campaign, or open a lead to reach out individually." action={<Link href="/" className="button secondary">Find more leads</Link>}/>{(error||failure)&&<Notice error>{error||failure}</Notice>}
+ {notice&&<Notice>{notice}</Notice>}
+ <section className="panel panel-padding"><h2>Personalized campaign</h2><p className="muted" style={{margin:'10px 0'}}>Each recipient receives an individual message with {'{{first_name}}'} and {'{{company_name}}'} filled from their lead record. A/B variants are assigned automatically.</p><div className="toolbar"><label htmlFor="saved-campaign">Campaign</label><select id="saved-campaign" value={campaign} disabled={busy} onChange={e=>{setCampaign(e.target.value);setReview(false);}} style={{maxWidth:360}}>{campaigns?.campaigns.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select><Link className="button secondary" href="/sequences">Edit dynamic templates</Link><button className="button secondary" disabled={!leads.length||busy} onClick={()=>{setSelected(leads.slice(0,100).map(l=>l.id));setReview(false);}}>Select filtered leads (up to 100)</button><button className="button subtle" disabled={busy} onClick={()=>{setSelected([]);setReview(false);}}>Clear selection</button></div><p style={{margin:'14px 0'}}>{chosen.length} selected · {live?'SendGrid':'Demo simulation'}</p><div className="toolbar"><button className="button secondary" disabled={!chosen.length||busy} onClick={()=>launch('queue')}>Queue selected for outreach</button><button className="button primary" disabled={!chosen.length||busy||!settings||!!live&&(!settings.email.ready||!settings.email.enabled)} onClick={()=>setReview(true)}>Review &amp; {live?'send':'simulate'} selected</button></div><small>Verified business emails are required for live campaigns. Invalid or suppressed contacts are skipped with a reason. The send action processes due steps only, subject to the configured batch limit.</small>
+ {review&&preview&&<div className="email-preview" style={{marginTop:20}}><h3>Review {chosen.length} recipients</h3><p>Example: {chosen[0].company} · {chosen[0].email||'No verified email'} · Variant A. Each recipient uses their own contact details and assigned variant.</p><strong>{preview.subject}</strong><p>{preview.body}</p><div className="toolbar"><button className="button primary" disabled={busy} onClick={()=>launch('send')}>{busy?'Processing…':live?'Send due emails to selected leads':'Simulate selected messages'}</button><button className="button secondary" disabled={busy} onClick={()=>setReview(false)}>Cancel</button></div></div>}
+ {!!results.length&&<ul>{results.map(r=><li key={r.leadId}>{data?.leads.find(l=>l.id===r.leadId)?.company||r.leadId}: {r.error||'Enrolled · '+r.status}</li>)}</ul>}
+ </section>
+ <div className="filter-bar"><div className="field"><label htmlFor="saved-query">Search saved leads</label><input id="saved-query" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Business, location or email"/></div><div className="field"><label htmlFor="saved-industry">Industry</label><select id="saved-industry" value={industry} onChange={e=>setIndustry(e.target.value)}><option>All industries</option>{[...new Set(data?.leads.map(l=>l.industry))].sort().map(i=><option key={i}>{i}</option>)}</select></div></div>
+ {!data&&!error?<Loading/>:<section className="panel"><div className="panel-heading"><h2>{leads.length} saved lead(s)</h2></div>{!leads.length?<div className="empty"><FolderHeart size={28}/><h3>{data?.leads.length?'No matching saved leads':'Your shortlist is empty'}</h3><p>Use “Save for later” on search results or a lead profile.</p></div>:<div className="table-wrap"><table className="saved-lead-table"><thead><tr><th>Select</th><th>Business</th><th>Location</th><th>Opportunity</th><th>Contact</th><th>Saved</th><th/></tr></thead><tbody>{leads.map(l=><tr key={l.id}><td><input type="checkbox" aria-label={'Select '+l.company} checked={selected.includes(l.id)} disabled={busy||!selected.includes(l.id)&&selected.length>=100} onChange={()=>{setSelected(s=>s.includes(l.id)?s.filter(id=>id!==l.id):[...s,l.id]);setReview(false);}}/></td><td><Link href={'/leads/'+l.id}><strong>{l.company}</strong></Link><small>{l.industry}</small></td><td>{l.listing?.address||[l.city,l.state,l.zip].filter(Boolean).join(', ')}</td><td><Badge>{presenceLabel(l)}</Badge></td><td>{l.email||l.emailCandidates?.[0]?.email||'No public email found'}{!l.email&&!!l.emailCandidates?.length&&<small>Found · verify on lead profile</small>}</td><td>{new Date(l.savedAt).toLocaleDateString()}</td><td><SaveLeadButton leadId={l.id} saved onChanged={refresh}/></td></tr>)}</tbody></table></div>}</section>}</>;
+}
