@@ -55,7 +55,7 @@ See `.env.example` for every supported key. Server secrets never use a `NEXT_PUB
 
 | Variable | Purpose |
 | --- | --- |
-| `DATABASE_URL` | `file:./data/handos.sqlite` by default. Only local SQLite `file:` URLs are supported. |
+| `DATABASE_URL` | `file:./data/handos.sqlite` by default. SQLite uses local `file:` URLs; persistent Supabase deployment uses `DATABASE_PROVIDER=supabase` and `SUPABASE_DATABASE_URL`. |
 | `DISCOVERY_PROVIDER` | `mock` (default) or `serpapi`. |
 | `SERPAPI_KEY` | Enables the SerpApi discovery adapter when selected. Missing key fails explicitly in live mode. |
 | `OPENAI_API_KEY` | Reserved for a future grounded audit summarizer; unused in this MVP. |
@@ -218,3 +218,7 @@ State abbreviations expand to full names in US search queries (for example, VA â
 ## Live integrations
 
 See [LIVE-SETUP.md](LIVE-SETUP.md) for all new environment variables and endpoints. Hunter verifies deliverability; the operator confirms business identity. SendGrid delivery attempts are persisted before transmission, uncertain attempts are held, signed callbacks are deduplicated, and signed unsubscribe links stop follow-ups. Replies and bookings require a configured external callback or a confirmed manual outcome; this app does not monitor a mailbox or calendar automatically.
+
+## Supabase and Vercel
+
+The backend supports persistent Supabase Postgres through an async repository with transactional queue locking. See [SUPABASE-DEPLOYMENT.md](SUPABASE-DEPLOYMENT.md) for migration and deployment. Set `DATABASE_PROVIDER=supabase` and a server-only `SUPABASE_DATABASE_URL`; leave the default SQLite provider for isolated demo/tests. Production Supabase does not automatically seed or reset records. Existing fictional demo activity is preserved and remains labeled demo.

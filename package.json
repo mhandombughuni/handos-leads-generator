@@ -11,20 +11,25 @@
     "start": "node scripts/start.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
+    "migrate:supabase": "node scripts/migrate-supabase.mjs",
+    "verify:supabase": "node --import tsx scripts/verify-supabase.ts",
     "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.117.3",
+    "lucide-react": "0.468.0",
     "next": "16.3.7",
+    "postgres": "^3.4.9",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "lucide-react": "0.468.0",
     "zod": "3.25.76"
   },
   "devDependencies": {
-    "typescript": "5.9.3",
     "@types/node": "22.20.4",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "tsx": "4.23.15"
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
   }
 }

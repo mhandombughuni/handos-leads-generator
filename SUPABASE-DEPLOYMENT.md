@@ -1,25 +1,15 @@
-# Publishing Handos at prospect.handos.co
+# Handos on Vercel + Supabase
 
-Status: preparation only; no service, database migration, or DNS change has been deployed. The running app still uses local SQLite. The SQL migration is a starting schema, not a working Postgres adapter.
+The backend now supports Supabase Postgres using DATABASE_PROVIDER=supabase and server-only SUPABASE_DATABASE_URL. SQLite remains supported for isolated local demos and tests. The private handos schema stores leads, saved leads, campaigns, templates, events, messages, suppressions, and delivery attempts. Transaction-pooler connections disable prepared statements and use TLS. Transaction-scoped advisory locking serializes campaign mutations across instances; network sends happen after message reservations commit.
 
-Target architecture:
+Migration: npm run migrate:supabase snapshots the local database into data/backups, creates the schema, copies and verifies every row/field in one transaction, and refuses to overwrite a populated destination. Do not repeat it after migrating without planning a separate reconciliation. npm run verify:supabase tests concurrency and deduplication using temporary demo records and removes those records afterward.
 
-- Next.js application and API: Cloud Run (existing container) or Vercel, pending hosting selection.
-- Persistent database: Supabase Postgres with server-only database credentials.
-- Website domain: prospect.handos.co points to the web host using its supplied DNS records.
-- SendGrid callback: https://prospect.handos.co/api/webhooks/sendgrid.
-- Production APP_URL: https://prospect.handos.co.
+## Vercel
 
-Needed account details: existing Supabase project URL, chosen web host/account, and DNS provider for handos.co. Database passwords and API keys must be configured through environment variables or the host's secret store, never committed or pasted into chat.
+Import mhandombughuni/handos-leads-generator with Next.js, Node 22 or later, npm install, and npm run build. Configure DATABASE_PROVIDER=supabase and SUPABASE_DATABASE_URL with the Supabase transaction-pooler string. Do not rely on local .env.local being uploaded: it is intentionally excluded from Git. Add the discovery, contact, and delivery keys separately in Vercel's environment settings. Never prefix server secrets with NEXT_PUBLIC_.
 
-Before publishing:
+Configure APP_URL=https://prospect.handos.co and a strong ADMIN_PASSWORD (ADMIN_USERNAME defaults to admin). Keep LIVE_EMAIL_ENABLED=false until SendGrid callbacks and unsubscribes work at the public URL. SENDGRID_SANDBOX=true can validate payloads without real delivery. The included vercel.json requests 300-second API executions; confirm your Vercel plan supports the required duration, because discovery can take several minutes. Configure an external scheduler to POST /api/jobs/run with the CRON_SECRET bearer token; no scheduler is automatically provisioned.
 
-1. Convert the synchronous SQLite repository and all transaction callers to asynchronous Postgres operations. Preserve atomic message reservations, suppression checks, event deduplication, and campaign scheduling across multiple instances.
-2. Apply supabase/migrations/202610070001_handos.sql. This uses a private handos schema with no anonymous/client access. Configure a suitable server database role; no public RLS policies are provided.
-3. Export and migrate existing leads, saved leads, campaigns, sequences, suppressions, messages, events, and delivery attempts. Preserve identifiers and timestamps. Compare source/destination counts and avoid importing invented demo activity as real campaign performance.
-4. Validate the application against Supabase, including concurrent queue calls and duplicate callbacks. Do not deploy the existing SQLite implementation onto ephemeral server storage for real campaigns.
-5. Configure production environment variables and workspace authentication. Start production with live delivery disabled until the public callback, sender verification, and unsubscribe links have been tested.
-6. Deploy Next.js, attach prospect.handos.co, and use the exact DNS record returned by the host. Do not guess a CNAME target or change handos.co mail/DNS records unrelated to this subdomain.
-7. Configure the signed SendGrid Event Webhook, copy the public verification key, test signatures, and enable scheduled follow-ups. Enable live delivery after this validation.
+Add prospect.handos.co in Vercel's domain settings, then copy the exact DNS record Vercel supplies into Wix. Do not change main-domain website or email records. Configure SendGrid's signed Event Webhook at https://prospect.handos.co/api/webhooks/sendgrid and copy its public verification key.
 
-References: https://supabase.com/docs/guides/platform/custom-domains and https://supabase.com/docs/guides/database/connecting-to-postgres.
+Publication is pending Vercel deployment and DNS configuration. Supabase custom domains do not host the Next.js frontend. References: https://supabase.com/docs/guides/platform/custom-domains and https://supabase.com/docs/guides/database/connecting-to-postgres.

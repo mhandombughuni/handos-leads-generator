@@ -13,7 +13,7 @@ export default function Campaigns(){
  const {data:settings}=useData<{email:{provider:string;enabled:boolean;ready:boolean;missing:string[]}}>('/api/settings');
  const {data:leads}=useData<{leads:Lead[]}>('/api/leads?includeHistorical=1');
  const [selected,setSelected]=useState('campaign-1'),[leadId,setLeadId]=useState(''),[notice,setNotice]=useState(''),[failure,setFailure]=useState(''),[busy,setBusy]=useState(false);
- const {data:stats}=useData<ReturnType<typeof analytics>>('/api/analytics?campaignId='+encodeURIComponent(selected));
+ const {data:stats}=useData<Awaited<ReturnType<typeof analytics>>>('/api/analytics?campaignId='+encodeURIComponent(selected));
  const campaign=data?.campaigns.find(c=>c.id===selected),m=stats?.metrics;
  const eligible=leads?.leads.filter(l=>isPotentialClient(l)&&!campaign?.enrollments.some(e=>e.leadId===l.id))||[];
  async function action(url:string,body:unknown){setBusy(true);setFailure('');try{const r=await api<{notice?:string}>(url,body);setNotice(r.notice||'Lead enrolled. No live email was sent.');setData(await api('/api/campaigns'));setLeadId('');}catch(e){setFailure((e as Error).message);}finally{setBusy(false);}}
