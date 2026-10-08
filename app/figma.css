@@ -88,3 +88,9 @@ table{font-size:12px}thead{background:#FFFFFF}th{font-size:10px;color:var(--ink)
 /* Stronger structural contrast. */
 :root{--line:rgba(0,0,0,.5)}
 .panel,.discovery-panel,.summary-stat,.metric-card,.campaign-card,.campaign-card.selected,.metric-definitions,.sequence-variant,.template,.email-preview,.quiet-panel,.experiment-status,.field input,.field select,select,.button.secondary,.lead-table tr,.preview-step-circle{border-color:rgba(0,0,0,.5)}
+
+/* Align the saved-lead campaign picker with its adjacent actions. */
+.saved-campaign-controls{align-items:center}
+.saved-campaign-controls #saved-campaign{height:43px;margin-bottom:0;flex:0 1 360px;min-width:0}
+.saved-campaign-controls>.button{min-height:43px}
+@media(max-width:760px){.saved-campaign-controls #saved-campaign{flex:1 1 220px}}
