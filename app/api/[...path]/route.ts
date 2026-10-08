@@ -171,5 +171,6 @@ export async function POST(req: NextRequest, { params }: {
 }
 function failure(e: unknown) {
  const result=publicError(e);
- return NextResponse.json({error:result.message},{status:result.status});
+ if(result.status===503)console.error('Handos database request failed',{code:result.code||'DATABASE_UNAVAILABLE'});
+ return NextResponse.json({error:result.message,...result.code?{code:result.code}:{}},{status:result.status});
 }
