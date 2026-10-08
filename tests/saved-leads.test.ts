@@ -38,7 +38,7 @@ test('bulk campaign enrollment reports partial failures, deduplicates, and sends
     assert.equal(messages.filter(m => m.enrollmentId === unrelated.id).length, 0);
     const message = messages.find(m => m.enrollmentId === results[0].enrollmentId)!;
     assert.ok(message.body.includes('Harbor Community Center'));
-    assert.ok(message.body.includes('Updated contact'));
+    assert.ok(message.body.startsWith('Hi Harbor Community Center Team,'));
     assert.ok(!message.body.includes('{{'));
     assert.equal((await enrollSavedLeads(['lead-1'], 'campaign-1'))[0].enrollmentId, results[0].enrollmentId);
 });

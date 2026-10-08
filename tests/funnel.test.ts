@@ -89,7 +89,8 @@ test('personalization resolves tags and keeps the audit CTA', async () => {
     for (const step of [1, 2, 3])
         for (const variant of ['A', 'B'] as const) {
             const m = renderMessage(step, variant, lead);
-            assert.ok(m.body.includes(lead.firstName));
+            if (step === 1) assert.ok(m.body.startsWith(`Hi ${lead.company} Team,`));
+            else assert.ok(m.body.includes(lead.firstName));
             assert.ok(m.body.includes(lead.company));
             assert.ok(m.body.includes('https://handos.co'));
             assert.ok(!m.body.includes('{{'));
