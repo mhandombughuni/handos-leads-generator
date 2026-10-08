@@ -1,3 +1,4 @@
+import { validateDatabaseURL } from './database-config';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import postgres from 'postgres';
 import { db as sqlite } from './sqlite';
@@ -7,7 +8,7 @@ let pool:ReturnType<typeof postgres>|undefined;
 const usePostgres=()=>process.env.DATABASE_PROVIDER==='supabase';
 function connection(){
  if(!process.env.SUPABASE_DATABASE_URL)throw new Error('SUPABASE_DATABASE_URL is required.');
- return pool??=postgres(process.env.SUPABASE_DATABASE_URL,{prepare:false,ssl:'require',max:3,connect_timeout:10,idle_timeout:20,onnotice:()=>{},connection:{search_path:'handos'}});
+ return pool??=postgres(validateDatabaseURL(process.env.SUPABASE_DATABASE_URL),{prepare:false,ssl:'require',max:3,connect_timeout:10,idle_timeout:20,onnotice:()=>{},connection:{search_path:'handos'}});
 }
 function postgresSQL(input:string){
  let i=0;let sql=input.replace(/\?/g,()=>'$'+(++i));

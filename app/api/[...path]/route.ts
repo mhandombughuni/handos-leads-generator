@@ -1,3 +1,4 @@
+import { publicError } from '@/lib/public-errors';
 import { savedLeads, saveLead, enrollSavedLeads } from '@/lib/saved-leads';
 import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'node:crypto';
@@ -168,4 +169,7 @@ export async function POST(req: NextRequest, { params }: {
         return failure(e);
     }
 }
-function failure(e: unknown) { return NextResponse.json({ error: e instanceof z.ZodError ? e.issues.map(i => i.message).join(' ') : e instanceof Error ? e.message : 'Request failed' }, { status: 400 }); }
+function failure(e: unknown) {
+ const result=publicError(e);
+ return NextResponse.json({error:result.message},{status:result.status});
+}
