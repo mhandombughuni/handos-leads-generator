@@ -1,3 +1,6 @@
+import { hasApprovedContact } from './contact-eligibility';
+import { validEmail } from './email-format';
+import { sendNotice } from './delivery-feedback';
 import { isPotentialClient } from './opportunity';
 import { createHmac, createPublicKey, randomUUID, timingSafeEqual, verify } from 'node:crypto';
 import { z } from 'zod';
@@ -14,7 +17,9 @@ export function deliveryConfig() {
 async function outbox() {
     (await db().exec('CREATE TABLE IF NOT EXISTS deliveries (message_id TEXT PRIMARY KEY REFERENCES messages(id), status TEXT NOT NULL, updated_at TEXT NOT NULL)'));
 }
-export async function deliveries() { (await outbox()); return (await db().prepare('SELECT message_id AS messageId,status,updated_at AS updatedAt FROM deliveries ORDER BY updated_at DESC LIMIT 100').all()); }
+export type DeliveryAttempt={messageId:string;status:string;updatedAt:string};
+export async function deliveryAttempts():Promise<DeliveryAttempt[]>{await outbox();return await db().prepare('SELECT message_id AS "messageId",status,updated_at AS "updatedAt" FROM deliveries ORDER BY updated_at DESC').all();}
+export async function deliveries(){return (await deliveryAttempts()).slice(0,100);}
 export function unsubscribeToken(id: string) { const secret = process.env.UNSUBSCRIBE_SECRET; if (!secret)
     throw new Error('UNSUBSCRIBE_SECRET is required.'); return createHmac('sha256', secret).update(id).digest('hex'); }
 export function validUnsubscribe(id: string, token: string) { try {
@@ -49,16 +54,17 @@ export async function runLiveDue(now = new Date(), campaignId?: string, enrollme
     if (new URL(process.env.APP_URL!).protocol !== 'https:')
         throw new Error('Live sending requires a public HTTPS APP_URL.');
     (await outbox());
-    let accepted = 0, failed = 0, unknown = 0, skipped = 0;
+    let accepted = 0, failed = 0, unknown = 0, skipped = 0, sandbox = 0;
+    const results:{leadId:string;messageId?:string;status:string;reason?:string}[]=[];
     const limit = Math.min(100, Math.max(1, Number(process.env.EMAIL_BATCH_LIMIT) || 10));
     for (const e of (await all<Enrollment>('enrollments'))) {
-        if (accepted + failed + unknown >= limit)
+        if (accepted + failed + unknown + sandbox >= limit)
             break;
         if ((enrollmentIds && !enrollmentIds.includes(e.id)) || e.status !== 'active' || new Date(e.nextDueAt) > now || (campaignId && e.campaignId !== campaignId))
             continue;
         const l = (await get<Lead>('leads', e.leadId));
-        if (!l || l.source === 'demo' || !l.email || !isPotentialClient(l) || l.contactVerification?.status !== 'verified' || l.contactVerification.email !== l.email.toLowerCase()) {
-            skipped++;
+        if (!l || l.source === 'demo' || !validEmail(l.email) || (!(e.bulkApproval?.email===l.email.toLowerCase())&&(!isPotentialClient(l)||!hasApprovedContact(l)))) {
+            skipped++;results.push({leadId:e.leadId,status:'skipped',reason:'Not eligible, suppressed, or already attempted.'});
             continue;
         }
         const reserved = (await transaction(async () => {
@@ -77,7 +83,7 @@ export async function runLiveDue(now = new Date(), campaignId?: string, enrollme
             return message;
         }));
         if (!reserved) {
-            skipped++;
+            skipped++;results.push({leadId:e.leadId,status:'skipped',reason:'Not eligible, suppressed, or already attempted.'});
             continue;
         }
         try {
@@ -90,8 +96,10 @@ export async function runLiveDue(now = new Date(), campaignId?: string, enrollme
                 if (current?.status === 'active')
                     (await putEnrollment({ ...current, status: 'delivery-rejected' }));
             } }));
+            results.push({leadId:e.leadId,messageId:reserved.id,status,...status==='rejected'?{reason:'SendGrid rejected the request (HTTP '+response.status+'). Check sender verification and provider configuration.'}:{}});
             if (status === 'accepted')
                 accepted++;
+            else if(status==='sandbox')sandbox++;
             else if (status === 'unknown')
                 unknown++;
             else
@@ -99,10 +107,12 @@ export async function runLiveDue(now = new Date(), campaignId?: string, enrollme
         }
         catch {
             (await db().prepare("UPDATE deliveries SET status='unknown',updated_at=? WHERE message_id=?").run(new Date().toISOString(), reserved.id));
-            unknown++;
+            unknown++;results.push({leadId:e.leadId,messageId:reserved.id,status:'unknown',reason:'Provider response was uncertain. Review in SendGrid before retrying.'});
         }
     }
-    return { accepted, failed, unknown, skipped, mode: 'sendgrid', notice: accepted + ' messages accepted by SendGrid; delivery is confirmed only by webhooks. Uncertain attempts are held for review, never automatically resent.' };
+    const upcoming=(await all<Enrollment>('enrollments')).filter(e=>(!enrollmentIds||enrollmentIds.includes(e.id))&&(!campaignId||e.campaignId===campaignId)&&e.status==='active'&&new Date(e.nextDueAt)>now);
+    const result={accepted,failed,unknown,skipped,sandbox,results,scheduled:upcoming.length,nextDueAt:upcoming.map(e=>e.nextDueAt).sort()[0],mode:'sendgrid'};
+    return {...result,notice:sendNotice(result)};
 }
 export const webhookSchema = z.array(z.object({ sg_event_id: z.string().min(1), handos_message_id: z.string().optional(), event: z.string(), timestamp: z.number().int().nonnegative() })).max(1000);
 export function verifySendGridSignature(raw: string, timestamp: string, signature: string) {

@@ -1,3 +1,5 @@
+import {reviewLeadPresence} from '@/lib/presence-review';
+import { approveManualOutreach, createManualLead, saveContactDraft } from '@/lib/manual-leads';
 import { publicError } from '@/lib/public-errors';
 import { savedLeads, saveLead, enrollSavedLeads } from '@/lib/saved-leads';
 import { NextRequest, NextResponse } from 'next/server';
@@ -11,7 +13,7 @@ import { analytics, exportCSV } from '@/lib/analytics';
 import { sequence } from '@/lib/sequence';
 import { getCampaignSequence, saveCampaignSequence } from '@/lib/campaign-sequence';
 import { contactCandidates, verifyContact } from '@/lib/contacts';
-import { deliveries, deliveryConfig, processSendGridEvents, reconcileDelivery, runLiveDue, validUnsubscribe, verifySendGridSignature } from '@/lib/delivery';
+import { deliveryAttempts, deliveries, deliveryConfig, processSendGridEvents, reconcileDelivery, runLiveDue, validUnsubscribe, verifySendGridSignature } from '@/lib/delivery';
 import type { Campaign, Enrollment, Lead, Message, TrackingEvent } from '@/lib/types';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,7 +21,7 @@ const searchSchema = z.object({ locationType: z.enum(['zip', 'city', 'state']), 
     c.addIssue({ code: 'custom', message: 'Choose a niche within the selected industry.', path: ['nicheId'] }); if (v.locationType === 'zip' && !/^\d{5}$/.test(v.location))
     c.addIssue({ code: 'custom', message: 'Enter a five-digit ZIP code.', path: ['location'] }); });
 const eventSchema = z.object({ externalId: z.string().min(1).max(200), messageId: z.string().min(1).max(100), type: z.enum(['delivered', 'open', 'click', 'reply', 'bounce', 'unsubscribe', 'booked-demo']), occurredAt: z.string().datetime().optional().refine(v => !v || new Date(v).getTime() <= Date.now() + 60000, 'Event time cannot be in the future.'), revenue: z.number().min(0).max(10000000).optional() });
-const filterSchema = z.object({ from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), category: z.string().max(100).optional(), campaignId: z.string().max(100).optional() }).refine(v => !v.from || !v.to || v.from <= v.to, 'Start date must precede end date.');
+const filterSchema = z.object({ source:z.enum(['live','demo']).optional(), from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), category: z.string().max(100).optional(), campaignId: z.string().max(100).optional() }).refine(v => !v.from || !v.to || v.from <= v.to, 'Start date must precede end date.');
 function authorized(req: NextRequest, secret: string | undefined) { if (!secret)
     return false; const a = Buffer.from(req.headers.get('authorization') || ''), b = Buffer.from(`Bearer ${secret}`); return a.length === b.length && timingSafeEqual(a, b); }
 export async function GET(req: NextRequest, { params }: {
@@ -55,7 +57,7 @@ export async function GET(req: NextRequest, { params }: {
                 return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
             const enrollments = (await all<Enrollment>('enrollments')).filter(e => e.leadId === lead.id);
             const messages = (await all<Message>('messages')).filter(m => enrollments.some(e => e.id === m.enrollmentId));
-            return NextResponse.json({ lead, enrollments, messages, events: (await all<TrackingEvent>('events')).filter(e => messages.some(m => m.id === e.messageId)), campaigns: (await all<Campaign>('campaigns')) });
+            return NextResponse.json({ lead, enrollments, messages, deliveries:(await deliveryAttempts()).filter(d=>messages.some(m=>m.id===d.messageId)), events: (await all<TrackingEvent>('events')).filter(e => messages.some(m => m.id === e.messageId)), campaigns: (await all<Campaign>('campaigns')) });
         }
         if (key === 'campaigns')
             return NextResponse.json({ campaigns: await Promise.all((await all<Campaign>('campaigns')).map(async (c) => ({ ...c, experiment: (await experiment(c.id)), enrollments: (await all<Enrollment>('enrollments')).filter(e => e.campaignId === c.id) }))), sequence });
@@ -99,12 +101,29 @@ export async function POST(req: NextRequest, { params }: {
         if (key === 'jobs/run' && !authorized(req, process.env.CRON_SECRET))
             return NextResponse.json({ error: 'A valid scheduler bearer secret is required.' }, { status: 401 });
         const body = await req.json();
+        if(path[0]==='leads'&&path[2]==='outreach-approval'&&path.length===3)return NextResponse.json(await approveManualOutreach(path[1],body));
+        if(path[0]==='leads'&&path[2]==='presence-check'&&path.length===3){z.object({}).strict().parse(body);return NextResponse.json(await reviewLeadPresence(path[1]));}
+        if (key === 'saved-leads/manual') return NextResponse.json(await createManualLead(body));
+        if (path[0] === 'leads' && path[2] === 'contact-draft' && path.length === 3) return NextResponse.json(await saveContactDraft(path[1], body));
         if (path[0] === 'leads' && path[2] === 'saved' && path.length === 3) {
             const p = z.object({ saved: z.boolean() }).strict().parse(body);
             return NextResponse.json((await saveLead(path[1], p.saved)));
         }
+        if (path[0]==='leads'&&path[2]==='send'&&path.length===3){
+            const p=z.object({campaignId:z.string().min(1)}).strict().parse(body);
+            const live=process.env.EMAIL_PROVIDER==='sendgrid';
+            if(live){const c=deliveryConfig();if(!c.ready||!c.enabled)throw new Error('Live sending is disabled or incomplete.');}
+            const enrollment=await enroll(path[1],p.campaignId);
+            const result=live?await runLiveDue(new Date(),p.campaignId,[enrollment.id]):await runDue(new Date(),p.campaignId,[enrollment.id]);
+            return NextResponse.json(result);
+        }
+        if(path[0]==='campaigns'&&path[2]==='send'&&path.length===3){
+            z.object({}).strict().parse(body);
+            if(!(await get<Campaign>('campaigns',path[1])))throw new Error('Campaign not found.');
+            return NextResponse.json(process.env.EMAIL_PROVIDER==='sendgrid'?await runLiveDue(new Date(),path[1]):await runDue(new Date(),path[1]));
+        }
         if (key === 'saved-leads/campaign') {
-            const p = z.object({ leadIds: z.array(z.string().min(1)).min(1).max(100), campaignId: z.string().min(1), action: z.enum(['queue', 'send']).default('queue') }).strict().parse(body);
+            const p = z.object({ leadIds: z.array(z.string().min(1)).min(1).max(100), campaignId: z.string().min(1), action: z.enum(['queue', 'send']).default('queue'),bulkApproval:z.boolean().default(false) }).strict().parse(body);
             if (!(await get<Campaign>('campaigns', p.campaignId)))
                 throw new Error('Campaign not found.');
             if (p.action === 'send' && process.env.EMAIL_PROVIDER === 'sendgrid') {
@@ -112,7 +131,7 @@ export async function POST(req: NextRequest, { params }: {
                 if (!config.enabled || !config.ready)
                     throw new Error('Live sending is disabled or incomplete. Configure SendGrid before sending.');
             }
-            const results = (await enrollSavedLeads(p.leadIds, p.campaignId));
+            const results = (await enrollSavedLeads(p.leadIds, p.campaignId,p.bulkApproval));
             const ids = results.flatMap(r => r.enrollmentId ? [r.enrollmentId] : []);
             const delivery = p.action === 'send' && ids.length ? (process.env.EMAIL_PROVIDER === 'sendgrid' ? await runLiveDue(new Date(), p.campaignId, ids) : (await runDue(new Date(), p.campaignId, ids))) : null;
             return NextResponse.json({ results, delivery, notice: p.action === 'queue' ? 'Selected eligible leads are queued. Each message uses the saved campaign templates and its own contact details.' : 'Due messages processed only for selected eligible leads. Follow-ups remain scheduled; inspect per-lead results and delivery attempts.' });

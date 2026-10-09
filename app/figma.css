@@ -1,6 +1,6 @@
 /* Figma handos-leads-UI: desktop 27:3 and mobile 27:1200. */
 
-:root{--primary:#fa854f;--primary-dark:#e77743;--ink:#131c23;--muted:#657078;--line:#e3dfd5;--page:#FFFFFF;--purple-light:#eaf4ff;--teal:#131c23;--radius:10px}
+:root{--primary:#fa854f;--primary-dark:#e77743;--ink:#131c23;--muted:#657078;--line:rgba(118,116,123,.45);--page:#FFFFFF;--purple-light:#eaf4ff;--teal:#131c23;--radius:10px}
 body{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;background:var(--page);line-height:1.45}
 h1{font-size:30px;font-weight:600;letter-spacing:-.6px;line-height:1.45}h2{font-size:17px}h3{font-size:14px}small{font-size:11px}
 .figma-header{position:relative;height:72px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:#FFFFFF;border-bottom:1px solid var(--line);z-index:30}
@@ -94,3 +94,33 @@ table{font-size:12px}thead{background:#FFFFFF}th{font-size:10px;color:var(--ink)
 .saved-campaign-controls #saved-campaign{height:43px;margin-bottom:0;flex:0 1 360px;min-width:0}
 .saved-campaign-controls>.button{min-height:43px}
 @media(max-width:760px){.saved-campaign-controls #saved-campaign{flex:1 1 220px}}
+
+/* Brand and prospect priority signals. */
+:root{--positive:#25D366;--negative:#dc2626}
+.figma-brand strong{font-family:'Inter',sans-serif;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
+.badge.green{background:rgba(37,211,102,.16);color:#146c36;border:1px solid var(--positive)}
+.badge.amber{background:rgba(250,133,79,.16);color:#963c13;border:1px solid var(--primary)}
+.badge.red{background:rgba(220,38,38,.1);color:var(--negative);border:1px solid var(--negative)}
+.score.high{color:var(--positive)}
+.score.medium{color:var(--primary)}
+.score.low{color:var(--negative)}
+.score.unknown{color:var(--muted)}
+.text-green{color:#146c36}
+
+.bulk-contacts{border-bottom:1px solid var(--line)}
+.selected-contact-list{max-height:520px;overflow:auto;margin-top:12px}
+.selected-contact{padding:12px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
+.selected-contact .toolbar{flex-wrap:wrap}
+.manual-lead-fields{border:0;padding:0;margin:16px 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.manual-lead-fields input{width:100%}
+@media(max-width:760px){.manual-lead-fields{grid-template-columns:1fr}.saved-lead-table{min-width:720px}}
+
+.manual-outreach-approval{margin:20px 0;padding-top:16px;border-top:1px solid var(--line)}
+.manual-outreach-approval .field{margin:12px 0}
+
+/* Readable paragraph typography on desktop and mobile. */
+.figma-workspace p:not(.eyebrow){font-size:14px;line-height:1.65;color:#374151;opacity:1}
+.figma-workspace p:is(.fine-print,.search-hint,.bottom-note),
+.figma-workspace .summary-stat p,
+.figma-workspace .metric-definitions p{font-size:12px;color:#4b5563}
+.figma-workspace p.eyebrow{font-size:12px;color:#4b5563}

@@ -1,3 +1,5 @@
+import { hasApprovedContact } from './contact-eligibility';
+import { validEmail } from './email-format';
 import { isPotentialClient } from './opportunity';
 import { createHash, randomUUID } from 'node:crypto';
 import { all, db, get, putEnrollment, putEvent, putMessage, transaction } from './db';
@@ -23,24 +25,22 @@ export async function chooseVariant(campaignId: string, leadId: string): Promise
     const bucket = parseInt(createHash('sha256').update(`${campaignId}:${leadId}`).digest('hex').slice(0, 8), 16) % 100;
     return winner ? (bucket < 80 ? winner : winner === 'A' ? 'B' : 'A') : (bucket < 50 ? 'A' : 'B');
 }
-export async function enroll(leadId: string, campaignId: string) {
+export async function enroll(leadId: string, campaignId: string, bulkApproval=false) {
     return (await transaction(async () => {
         const lead = (await get<Lead>('leads', leadId)), campaign = (await get<Campaign>('campaigns', campaignId));
         if (!lead || !campaign)
             throw new Error('Lead or campaign not found.');
-        if (lead.source !== 'demo' && !isPotentialClient(lead))
-            throw new Error('This live lead has not passed independent digital presence screening.');
-        if (!lead.email)
-            throw new Error('Add and verify a contact email before enrollment.');
-        if (lead.source !== 'demo' && (lead.contactVerification?.status !== 'verified' || lead.contactVerification.email !== lead.email.toLowerCase() || !lead.contactVerification.identityConfirmed))
+        if (!bulkApproval && lead.source !== 'demo' && !isPotentialClient(lead))
+            throw new Error(lead.source==='manual'?'Approve this manual prospect for outreach in Review / edit email. Email verification and business-fit approval are separate requirements.':'Business fit is unverified or excluded. This lead has not passed independent digital presence screening; an email alone does not make it eligible for outreach.');
+        if (!validEmail(lead.email))throw new Error('Add an email address in a valid format before enrollment.');
+        if (!bulkApproval && lead.source !== 'demo' && !hasApprovedContact(lead))
             throw new Error('Verify the email and confirm business identity before enrolling a live lead.');
         if ((await db().prepare('SELECT email FROM suppressions WHERE email=?').get(lead.email.toLowerCase())))
             throw new Error('This contact is suppressed and cannot be enrolled.');
         const existing = (await all<Enrollment>('enrollments')).find(e => e.leadId === leadId && e.campaignId === campaignId);
-        if (existing)
-            return existing;
+        if (existing){if(bulkApproval){const approved={...existing,bulkApproval:{email:lead.email.toLowerCase(),approvedAt:new Date().toISOString()}};await putEnrollment(approved);return approved;}return existing;}
         const now = new Date().toISOString();
-        const enrollment: Enrollment = { id: randomUUID(), leadId, campaignId, variant: (await chooseVariant(campaignId, leadId)), status: 'active', nextStep: 1, nextDueAt: now, createdAt: now };
+        const enrollment: Enrollment = { ...(bulkApproval?{bulkApproval:{email:lead.email.toLowerCase(),approvedAt:now}}:{}),id: randomUUID(), leadId, campaignId, variant: (await chooseVariant(campaignId, leadId)), status: 'active', nextStep: 1, nextDueAt: now, createdAt: now };
         (await putEnrollment(enrollment));
         return enrollment;
     }));

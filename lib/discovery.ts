@@ -90,7 +90,7 @@ export class SerpApiDiscoveryProvider implements DiscoveryProvider {
         let checked = 0;
         for (const candidate of ranked.leads) {
             if (checked >= 10) {
-                rejected.push({ ...candidate, presence: { status: 'unknown', checkedAt: new Date().toISOString(), queries: [], traces: [], reason: 'Per-search verification limit reached. Not qualified.' } });
+                rejected.push({ ...candidate, presence: { status: 'unknown', checkedAt: new Date().toISOString(), queries: [], traces: [], reason: 'Awaiting presence checks: the initial search checked its first 10 candidates. Open this lead and run its presence check.' } });
                 continue;
             }
             checked++;

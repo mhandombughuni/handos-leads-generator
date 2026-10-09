@@ -1,0 +1,9 @@
+'use client';
+import { useState } from 'react';
+import { api, Notice } from './ui';
+import type { Lead } from '@/lib/types';
+export function ManualLeadForm({onSaved,onCancel}:{onSaved:(lead:Lead)=>void;onCancel:()=>void}){
+ const [busy,setBusy]=useState(false),[error,setError]=useState('');
+ async function submit(e:React.FormEvent<HTMLFormElement>){e.preventDefault();const values=Object.fromEntries(new FormData(e.currentTarget));setBusy(true);setError('');try{const r=await api<{lead:Lead}>('/api/saved-leads/manual',values);onSaved(r.lead);}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ return <section className="panel panel-padding"><h2>Add a lead manually</h2>{error&&<Notice error>{error}</Notice>}<form onSubmit={submit}><fieldset disabled={busy} className="manual-lead-fields">{[['company','Company name','text',true],['industry','Industry','text',true],['firstName','Contact first name','text',false],['email','Business email (optional)','email',false],['website','Website (optional)','url',false],['city','City','text',false],['state','State','text',false],['zip','ZIP code','text',false]].map(([name,label,type,required])=><div className="field" key={String(name)}><label htmlFor={'manual-'+name}>{label}</label><input id={'manual-'+name} name={String(name)} type={String(type)} required={Boolean(required)} maxLength={name==='website'?1000:name==='email'?254:100}/></div>)}</fieldset><p className="fine-print">Manual leads start with unverified business fit. Adding an email does not verify it or send outreach.</p><div className="toolbar"><button className="button primary" disabled={busy}>{busy?'Saving…':'Add to saved leads'}</button><button type="button" className="button secondary" disabled={busy} onClick={onCancel}>Cancel</button></div></form></section>;
+}

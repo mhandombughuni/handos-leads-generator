@@ -222,3 +222,11 @@ See [LIVE-SETUP.md](LIVE-SETUP.md) for all new environment variables and endpoin
 ## Supabase and Vercel
 
 The backend supports persistent Supabase Postgres through an async repository with transactional queue locking. See [SUPABASE-DEPLOYMENT.md](SUPABASE-DEPLOYMENT.md) for migration and deployment. Set `DATABASE_PROVIDER=supabase` and a server-only `SUPABASE_DATABASE_URL`; leave the default SQLite provider for isolated demo/tests. Production Supabase does not automatically seed or reset records. Existing fictional demo activity is preserved and remains labeled demo.
+
+## Source of truth and production deployments
+
+The canonical source is `https://github.com/mhandombughuni/handos-leads-generator`, branch `main`. Use the Git checkout at `/Users/mhandombughuni/handos-leads-generator` for future edits. The Codex output folder and the separate Documents Vite project are not the deployment source of truth.
+
+Run `npm test` and `npm run build`, commit the source changes, and push `main`. The connected Vercel project `handos-leads-generator` deploys this branch; verify the deployment commit SHA before treating a change as live. Production credentials are managed in Vercel, and local credentials belong in an ignored `.env.local`. Do not commit credentials, local databases, or `.vercel` metadata.
+
+A CLI deployment uploads local files without pushing a Git commit. For normal production updates, use the connected Git deployment flow so GitHub and production stay aligned.

@@ -81,6 +81,20 @@ test('contact verifier rejects uncertain addresses and saves only deliverable co
     try {
         await assert.rejects(verifyContact(lead.id, input), /did not confirm/);
         await assert.rejects(async () => (await enroll(lead.id, 'campaign-3')), /Verify/);
+        for (const data of [
+            { status: 'unknown' }, { status: 'invalid' }, { status: 'disposable' },
+            { status: 'accept_all' }, { result: 'deliverable' },
+            { status: 'valid', result: 'risky' },
+            { status: 'valid', accept_all: true }, { status: 'valid', disposable: true },
+        ]) {
+            globalThis.fetch = async () => new Response(JSON.stringify({ data }));
+            await assert.rejects(verifyContact(lead.id, input), /did not confirm/);
+        }
+        globalThis.fetch = async () => new Response(JSON.stringify({ data: {} }), { status: 202 });
+        await assert.rejects(verifyContact(lead.id, input), /still verifying/);
+        globalThis.fetch = async () => new Response(JSON.stringify({ data: { status: 'valid' } }));
+        await verifyContact(lead.id, input);
+        assert.equal((await get<Lead>('leads', lead.id))?.contactVerification?.status, 'verified');
         globalThis.fetch = async () => new Response(JSON.stringify({ data: { status: 'valid', result: 'deliverable' } }));
         await verifyContact(lead.id, input);
         assert.equal((await get<Lead>('leads', lead.id))?.contactVerification?.status, 'verified');
@@ -88,4 +102,36 @@ test('contact verifier rejects uncertain addresses and saves only deliverable co
     finally {
         globalThis.fetch = original;
     }
+});
+
+test('accept-all requires explicit approval and remains labeled through enrollment and sending', async () => {
+    config();
+    process.env.HUNTER_API_KEY = 'test-key';
+    const lead = await live('manual-accept-all');
+    delete lead.contactVerification;
+    await putLead(lead);
+    const input = { firstName: 'Alex', email: lead.email!, identityConfirmed: true, source: 'Owner confirmed by phone' };
+    const original = globalThis.fetch;
+    try {
+        globalThis.fetch = async () => new Response(JSON.stringify({ data: { status: 'accept_all', result: 'risky', accept_all: true } }));
+        await assert.rejects(verifyContact(lead.id, input), /manual approval/);
+        await assert.rejects(enroll(lead.id, 'campaign-3'), /Verify/);
+        const saved = await verifyContact(lead.id, { ...input, approveAcceptAll: true });
+        assert.equal(saved.lead.contactVerification.status, 'manually-approved');
+        assert.equal(saved.lead.contactVerification.hunterStatus, 'accept_all');
+        assert.ok(saved.lead.contactVerification.manualApprovedAt);
+        assert.match(saved.notice, /has not confirmed/);
+        await enroll(lead.id, 'campaign-3');
+        let sent = 0;
+        globalThis.fetch = async () => { sent++; return new Response(null, { status: 202 }); };
+        const result = await runLiveDue(new Date(Date.now() + 1000), 'campaign-3');
+        assert.equal(result.accepted, 1);
+        assert.equal(sent, 1);
+        for (const status of ['unknown', 'invalid', 'disposable']) {
+            globalThis.fetch = async () => new Response(JSON.stringify({ data: { status } }));
+            await assert.rejects(verifyContact(lead.id, { ...input, approveAcceptAll: true }), /did not confirm/);
+        }
+        globalThis.fetch = async () => new Response(JSON.stringify({ data: { status: 'accept_all', disposable: true } }));
+        await assert.rejects(verifyContact(lead.id, { ...input, approveAcceptAll: true }), /did not confirm/);
+    } finally { globalThis.fetch = original; }
 });

@@ -1,5 +1,6 @@
 import type { Lead } from './types';
 export function isPotentialClient(lead:Lead){
+ if(lead.source==='manual')return lead.outreachApproval?.approved===true;
  return lead.source==='demo'?lead.signals.hasWebsite===false||lead.signals.staleDesign===true:['no-additional-presence-found','no-owned-website-found','outdated-website'].includes(lead.presence?.status||'');
 }
 export function presenceLabel(lead:Lead){

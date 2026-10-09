@@ -17,7 +17,7 @@ export async function saveLead(id: string, saved: boolean) {
         (await db().prepare('DELETE FROM saved_leads WHERE lead_id=?').run(id));
     return { saved, notice: saved ? 'Lead saved for later outreach.' : 'Lead removed from saved list. The business record and campaign history are retained.' };
 }
-export async function enrollSavedLeads(ids: string[], campaignId: string) {
+export async function enrollSavedLeads(ids: string[], campaignId: string, bulkApproval=false) {
     const saved = new Set((await savedLeads()).map(l => l.id));
     const results: {
         leadId: string;
@@ -31,7 +31,7 @@ export async function enrollSavedLeads(ids: string[], campaignId: string) {
             continue;
         }
         try {
-            const e: Enrollment = (await enroll(leadId, campaignId));
+            const e: Enrollment = (await enroll(leadId, campaignId, bulkApproval));
             results.push({ leadId, enrollmentId: e.id, status: e.status });
         }
         catch (e) {
