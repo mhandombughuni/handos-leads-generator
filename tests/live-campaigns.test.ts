@@ -1,0 +1,26 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+process.env.DATABASE_URL = 'file::memory:';
+process.env.EMAIL_PROVIDER = 'sendgrid';
+import { GET } from '../app/api/[...path]/route';
+import { get, putLead } from '../lib/db';
+import { enroll, experiment } from '../lib/engine';
+import { NextRequest } from 'next/server';
+import type { Lead } from '../lib/types';
+test('live campaign enrollment and experiments exclude seeded demo data', async () => {
+    const request = (source: string) => GET(new NextRequest('https://app.example.test/api/campaigns?source=' + source), { params: Promise.resolve({ path: ['campaigns'] }) });
+    const demo = await (await request('demo')).json();
+    assert.ok(demo.campaigns.some((c: any) => c.enrollments.length > 0));
+    assert.ok(demo.campaigns.some((c: any) => c.experiment.variants.some((v: any) => v.delivered > 0)));
+    const original = (await get<Lead>('leads', 'lead-1'))!;
+    await putLead({ ...original, id: 'live-campaign-contact', source: 'manual', email: 'owner@example.test', outreachApproval: { approved: true, note: 'Owner requested outreach', reviewedAt: new Date().toISOString() }, contactVerification: { status: 'verified', email: 'owner@example.test', identityConfirmed: true, provider: 'hunter', source: 'Confirmed by owner', verifiedAt: new Date().toISOString() } });
+    await enroll('live-campaign-contact', 'campaign-1');
+    const live = await (await request('live')).json();
+    assert.equal(live.source, 'live');
+    assert.equal(live.campaigns.flatMap((c: any) => c.enrollments).length, 1);
+    assert.equal(live.campaigns[0].enrollments[0].leadId, 'live-campaign-contact');
+    assert.equal(live.campaigns[0].sequence.length, 3);
+    for (const c of live.campaigns) for (const v of c.experiment.variants) assert.equal(v.delivered, 0);
+    assert.equal((await experiment('campaign-1')).winner, null);
+    assert.equal((await request('invalid')).status, 400);
+});

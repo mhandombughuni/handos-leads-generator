@@ -59,8 +59,12 @@ export async function GET(req: NextRequest, { params }: {
             const messages = (await all<Message>('messages')).filter(m => enrollments.some(e => e.id === m.enrollmentId));
             return NextResponse.json({ lead, enrollments, messages, deliveries:(await deliveryAttempts()).filter(d=>messages.some(m=>m.id===d.messageId)), events: (await all<TrackingEvent>('events')).filter(e => messages.some(m => m.id === e.messageId)), campaigns: (await all<Campaign>('campaigns')) });
         }
-        if (key === 'campaigns')
-            return NextResponse.json({ campaigns: await Promise.all((await all<Campaign>('campaigns')).map(async (c) => ({ ...c, experiment: (await experiment(c.id)), enrollments: (await all<Enrollment>('enrollments')).filter(e => e.campaignId === c.id) }))), sequence });
+        if (key === 'campaigns') {
+            const source = z.enum(['live', 'demo']).parse(req.nextUrl.searchParams.get('source') || (process.env.EMAIL_PROVIDER === 'sendgrid' ? 'live' : 'demo'));
+            const leads = new Map((await all<Lead>('leads')).map(l => [l.id, l]));
+            const enrollments = (await all<Enrollment>('enrollments')).filter(e => source === 'demo' ? leads.get(e.leadId)?.source === 'demo' : !!leads.get(e.leadId) && leads.get(e.leadId)?.source !== 'demo');
+            return NextResponse.json({ source, campaigns: await Promise.all((await all<Campaign>('campaigns')).map(async (c) => ({ ...c, sequence: await getCampaignSequence(c.id), experiment: await experiment(c.id, source), enrollments: enrollments.filter(e => e.campaignId === c.id) }))), sequence });
+        }
         if (key === 'analytics' || key === 'export') {
             const filters = filterSchema.parse(Object.fromEntries(req.nextUrl.searchParams));
             return key === 'export' ? new NextResponse((await exportCSV(filters)), { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="handos-performance.csv"', 'Cache-Control': 'no-store' } }) : NextResponse.json((await analytics(filters)));

@@ -7,8 +7,9 @@ import { renderMessage } from './sequence';
 import { getCampaignSequence } from './campaign-sequence';
 import type { Campaign, Enrollment, EventType, Lead, Message, TrackingEvent, Variant } from './types';
 const stops: EventType[] = ['reply', 'bounce', 'unsubscribe', 'booked-demo'];
-export async function experiment(campaignId: string) {
-    const ids = new Set((await all<Enrollment>('enrollments')).filter(e => e.campaignId === campaignId).map(e => e.id));
+export async function experiment(campaignId: string, source: 'live'|'demo' = process.env.EMAIL_PROVIDER === 'sendgrid' ? 'live' : 'demo') {
+    const leads = new Map((await all<Lead>('leads')).map(l => [l.id, l]));
+    const ids = new Set((await all<Enrollment>('enrollments')).filter(e => e.campaignId === campaignId && (source === 'demo' ? leads.get(e.leadId)?.source === 'demo' : !!leads.get(e.leadId) && leads.get(e.leadId)?.source !== 'demo')).map(e => e.id));
     const messages = (await all<Message>('messages')).filter(m => ids.has(m.enrollmentId) && m.step === 1);
     const events = (await all<TrackingEvent>('events'));
     const variants = (['A', 'B'] as Variant[]).map(variant => {
