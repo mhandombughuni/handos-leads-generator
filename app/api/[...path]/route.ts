@@ -1,3 +1,4 @@
+import {audienceForCampaign,listCampaigns} from '@/lib/campaigns';
 import {generateSequenceDraft} from '@/lib/sequence-draft';
 import {reviewLeadPresence} from '@/lib/presence-review';
 import { approveManualOutreach, createManualLead, saveContactDraft } from '@/lib/manual-leads';
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest, { params }: {
             return new NextResponse('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Handos unsubscribe</title></head><body><h1>Stop Handos emails</h1><form method="POST" action="' + action.replaceAll('&', '&amp;').replaceAll('"', '&quot;') + '"><button type="submit">Unsubscribe</button></form></body></html>', { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
         }
         if (path[0] === 'campaigns' && path[2] === 'sequence' && path.length === 3)
-            return NextResponse.json({ campaignId:path[1], audience:req.nextUrl.searchParams.get('audience')||'general', sequence: (await getCampaignSequence(path[1],req.nextUrl.searchParams.get('audience')||'general')) });
+            return NextResponse.json({ campaignId:path[1], audience:audienceForCampaign(path[1]), sequence: (await getCampaignSequence(path[1],req.nextUrl.searchParams.get('audience')||'general')) });
         if (key === 'leads')
             return NextResponse.json({ leads: (await all<Lead>('leads')).filter(l => req.nextUrl.searchParams.get('includeHistorical') === '1' || !l.company.includes('Demo branch')) });
         if (path[0] === 'leads' && path[1]) {
@@ -58,13 +59,13 @@ export async function GET(req: NextRequest, { params }: {
                 return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
             const enrollments = (await all<Enrollment>('enrollments')).filter(e => e.leadId === lead.id);
             const messages = (await all<Message>('messages')).filter(m => enrollments.some(e => e.id === m.enrollmentId));
-            return NextResponse.json({ lead, enrollments, messages, deliveries:(await deliveryAttempts()).filter(d=>messages.some(m=>m.id===d.messageId)), events: (await all<TrackingEvent>('events')).filter(e => messages.some(m => m.id === e.messageId)), campaigns: (await all<Campaign>('campaigns')) });
+            return NextResponse.json({ lead, enrollments, messages, deliveries:(await deliveryAttempts()).filter(d=>messages.some(m=>m.id===d.messageId)), events: (await all<TrackingEvent>('events')).filter(e => messages.some(m => m.id === e.messageId)), campaigns: (await listCampaigns()) });
         }
         if (key === 'campaigns') {
             const source = z.enum(['live', 'demo']).parse(req.nextUrl.searchParams.get('source') || (process.env.EMAIL_PROVIDER === 'sendgrid' ? 'live' : 'demo'));
             const leads = new Map((await all<Lead>('leads')).map(l => [l.id, l]));
             const enrollments = (await all<Enrollment>('enrollments')).filter(e => source === 'demo' ? leads.get(e.leadId)?.source === 'demo' : !!leads.get(e.leadId) && leads.get(e.leadId)?.source !== 'demo');
-            return NextResponse.json({ source, campaigns: await Promise.all((await all<Campaign>('campaigns')).map(async (c) => ({ ...c, sequence: await getCampaignSequence(c.id), experiment: await experiment(c.id, source), enrollments: enrollments.filter(e => e.campaignId === c.id) }))), sequence });
+            return NextResponse.json({ source, campaigns: await Promise.all((await listCampaigns()).map(async (c) => ({ ...c, sequence: await getCampaignSequence(c.id), experiment: await experiment(c.id, source), enrollments: enrollments.filter(e => e.campaignId === c.id) }))), sequence });
         }
         if (key === 'analytics' || key === 'export') {
             const filters = filterSchema.parse(Object.fromEntries(req.nextUrl.searchParams));
@@ -106,7 +107,7 @@ export async function POST(req: NextRequest, { params }: {
         if (key === 'jobs/run' && !authorized(req, process.env.CRON_SECRET))
             return NextResponse.json({ error: 'A valid scheduler bearer secret is required.' }, { status: 401 });
         const body = await req.json();
-        if(path[0]==='campaigns'&&path[2]==='sequence-draft'&&path.length===3){if(!await get<Campaign>('campaigns',path[1]))throw new Error('Campaign not found.');const p=z.object({audience:z.string().max(80)}).strict().parse(body);return NextResponse.json(await generateSequenceDraft(p.audience));}
+        if(path[0]==='campaigns'&&path[2]==='sequence-draft'&&path.length===3){if(!await get<Campaign>('campaigns',path[1]))throw new Error('Campaign not found.');const p=z.object({audience:z.string().max(80)}).strict().parse(body);return NextResponse.json(await generateSequenceDraft(audienceForCampaign(path[1])));}
         if(path[0]==='leads'&&path[2]==='outreach-approval'&&path.length===3)return NextResponse.json(await approveManualOutreach(path[1],body));
         if(path[0]==='leads'&&path[2]==='presence-check'&&path.length===3){z.object({}).strict().parse(body);return NextResponse.json(await reviewLeadPresence(path[1]));}
         if (key === 'saved-leads/manual') return NextResponse.json(await createManualLead(body));
