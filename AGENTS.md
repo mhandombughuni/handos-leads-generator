@@ -7,3 +7,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Production source and deployment
+
+Use this Git checkout as the canonical source. Every production change must be committed and pushed to `origin/main`. Verify `/api/health` reports the pushed commit in `revision`. Do not deploy an unsynchronized Codex output folder with the Vercel CLI; that can replace production with older code. Website screening does not gate user-selected outreach to verified or explicitly approved accept-all contacts.
