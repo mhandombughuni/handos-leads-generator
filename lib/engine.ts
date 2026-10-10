@@ -1,6 +1,5 @@
 import { hasApprovedContact } from './contact-eligibility';
 import { validEmail } from './email-format';
-import { isPotentialClient } from './opportunity';
 import { createHash, randomUUID } from 'node:crypto';
 import { all, db, get, putEnrollment, putEvent, putMessage, transaction } from './db';
 import { renderMessage } from './sequence';
@@ -31,8 +30,6 @@ export async function enroll(leadId: string, campaignId: string, bulkApproval=fa
         const lead = (await get<Lead>('leads', leadId)), campaign = (await get<Campaign>('campaigns', campaignId));
         if (!lead || !campaign)
             throw new Error('Lead or campaign not found.');
-        if (!bulkApproval && lead.source !== 'demo' && !isPotentialClient(lead))
-            throw new Error(lead.source==='manual'?'Approve this manual prospect for outreach in Review / edit email. Email verification and business-fit approval are separate requirements.':'Business fit is unverified or excluded. This lead has not passed independent digital presence screening; an email alone does not make it eligible for outreach.');
         if (!validEmail(lead.email))throw new Error('Add an email address in a valid format before enrollment.');
         if (!bulkApproval && lead.source !== 'demo' && !hasApprovedContact(lead))
             throw new Error('Verify the email and confirm business identity before enrolling a live lead.');

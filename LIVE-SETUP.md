@@ -90,3 +90,6 @@ Open the lead profile to review candidates, inspect source links, select an addr
 
 ### Accept-all manual approval
 In the contact editor, confirm business identity and record your source, then explicitly select the accept-all approval checkbox and choose **Check and approve contact**. Hunter still checks the address. Only an accept-all verdict can receive this override; unknown, invalid, and disposable addresses remain blocked. The saved contact displays **Accept-all · manually approved**, with the approval time and Hunter status retained. This approval permits normal enrollment and sending subject to business fit and suppression checks; it does not confirm mailbox deliverability.
+
+### User-selected outreach
+Normal enrollment and sending require a verified contact or explicit accept-all approval. Choosing to enroll or send is the outreach decision; website presence, automated audit results, and manual business-fit flags do not gate sending. Existing suppression, opt-out, sequence scheduling, and duplicate-send checks still apply.

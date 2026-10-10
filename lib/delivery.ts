@@ -1,7 +1,6 @@
 import { hasApprovedContact } from './contact-eligibility';
 import { validEmail } from './email-format';
 import { sendNotice } from './delivery-feedback';
-import { isPotentialClient } from './opportunity';
 import { createHmac, createPublicKey, randomUUID, timingSafeEqual, verify } from 'node:crypto';
 import { z } from 'zod';
 import { all, db, get, putEnrollment, putMessage, transaction } from './db';
@@ -63,7 +62,7 @@ export async function runLiveDue(now = new Date(), campaignId?: string, enrollme
         if ((enrollmentIds && !enrollmentIds.includes(e.id)) || e.status !== 'active' || new Date(e.nextDueAt) > now || (campaignId && e.campaignId !== campaignId))
             continue;
         const l = (await get<Lead>('leads', e.leadId));
-        if (!l || l.source === 'demo' || !validEmail(l.email) || (!(e.bulkApproval?.email===l.email.toLowerCase())&&(!isPotentialClient(l)||!hasApprovedContact(l)))) {
+        if (!l || l.source === 'demo' || !validEmail(l.email) || (!(e.bulkApproval?.email===l.email.toLowerCase())&&!hasApprovedContact(l))) {
             skipped++;results.push({leadId:e.leadId,status:'skipped',reason:'Not eligible, suppressed, or already attempted.'});
             continue;
         }

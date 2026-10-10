@@ -135,3 +135,23 @@ test('accept-all requires explicit approval and remains labeled through enrollme
         await assert.rejects(verifyContact(lead.id, { ...input, approveAcceptAll: true }), /did not confirm/);
     } finally { globalThis.fetch = original; }
 });
+
+test('user-selected verified contacts can enroll and send regardless of website screening', async () => {
+ config();
+ const original=globalThis.fetch;
+ let calls=0;
+ globalThis.fetch=async()=>{calls++;return new Response(null,{status:202});};
+ try {
+  for(const [id,website] of [['no-screening-no-website',null],['no-screening-with-website','https://example.test']] as const){
+   const lead=await live(id);
+   delete lead.presence;
+   await putLead({...lead,website});
+   const e=await enroll(id,'campaign-1');
+   assert.equal((await runLiveDue(new Date(Date.now()+1000),'campaign-1',[e.id])).accepted,1);
+   assert.equal((await runLiveDue(new Date(Date.now()+1000),'campaign-1',[e.id])).accepted,0);
+  }
+  assert.equal(calls,2);
+  const unverified=await live('no-screening-unverified');delete unverified.contactVerification;delete unverified.presence;await putLead(unverified);
+  await assert.rejects(enroll(unverified.id,'campaign-1'),/Verify the email/);
+ }finally{globalThis.fetch=original;}
+});

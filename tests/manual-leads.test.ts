@@ -42,7 +42,7 @@ test('manual approval permits verified manual contacts without inventing screeni
  const original=globalThis.fetch;let calls=0;globalThis.fetch=async()=>{calls++;return new Response(null,{status:202});};
  try{assert.equal((await runLiveDue(new Date(Date.now()+1000),'campaign-2',[enrollment.id])).accepted,1);assert.equal(calls,1);
  await approveManualOutreach(lead.id,{approved:false,note:''});
- assert.equal((await runLiveDue(new Date(Date.now()+4*86400000),'campaign-2',[enrollment.id])).accepted,0);assert.equal(calls,1);
+ assert.equal((await runLiveDue(new Date(Date.now()+4*86400000),'campaign-2',[enrollment.id])).accepted,1);assert.equal(calls,2);
  }finally{globalThis.fetch=original;}
  assert.equal(isPotentialClient((await approveManualOutreach(lead.id,{approved:false,note:''})).lead),false);
  await assert.rejects(()=>approveManualOutreach('lead-1',{approved:true,note:'Test'}),/only available/);
