@@ -71,30 +71,49 @@ export function preserveLeadHistory(fresh: Lead, existing: Lead | undefined): Le
         return fresh;
     return { ...fresh, createdAt: existing.createdAt, firstName: existing.firstName, email: existing.email, contactVerification: existing.contactVerification, salesReadiness: existing.salesReadiness, ...existing.audit.source === 'observed' ? { audit: existing.audit, signals: existing.signals } : {} };
 }
+export type DiscoveryTiming = { listingTimeoutMs: number; screeningBudgetMs: number; candidateTimeoutMs: number; emailTimeoutMs: number };
+const discoveryTiming: DiscoveryTiming = {listingTimeoutMs:25000, screeningBudgetMs:40000, candidateTimeoutMs:15000, emailTimeoutMs:5000};
+async function listingResults(url: string, timeoutMs: number) {
+    for (let attempt=0; attempt<2; attempt++) {
+        try {
+            const response=await fetch(url,{signal:AbortSignal.timeout(timeoutMs),cache:'no-store'});
+            if (!response.ok) {
+                if (attempt===0 && (response.status===429 || response.status>=500)) continue;
+                throw new Error('Discovery provider unavailable. Please try again shortly.');
+            }
+            const data=await response.json();
+            if(data.error)throw new Error('Discovery provider could not complete the search. Please try again shortly.');
+            return data;
+        } catch(error) {
+            const e=error as Error;
+            const transient=e.name==='TimeoutError'||e.name==='AbortError'||e instanceof TypeError;
+            if(transient&&attempt===0)continue;
+            if(transient)throw new Error('The search provider did not respond in time after two attempts. Please try this search again shortly.');
+            throw error;
+        }
+    }
+    throw new Error('Discovery provider unavailable. Please try again shortly.');
+}
 // Discovery plus bounded independent presence checks; missing listing URLs alone never qualify.
 export class SerpApiDiscoveryProvider implements DiscoveryProvider {
-    constructor(private key: string, private inspect: typeof inspectWebsite = inspectWebsite) { }
+    constructor(private key: string, private inspect: typeof inspectWebsite = inspectWebsite, private timing: DiscoveryTiming = discoveryTiming) { }
     async search(input: SearchInput): Promise<DiscoveryResult> {
         const phrase = searchPhrase(input);
         const query = new URLSearchParams({ engine: 'google_maps', q: phrase, hl: 'en', gl: 'us', api_key: this.key });
-        const response = await fetch(`https://serpapi.com/search.json?${query}`, { signal: AbortSignal.timeout(15000), cache: 'no-store' });
-        if (!response.ok)
-            throw new Error('Discovery provider unavailable.');
-        const data = await response.json();
-        if (data.error)
-            throw new Error('Discovery provider could not complete the search.');
+        const data = await listingResults(`https://serpapi.com/search.json?${query}`,this.timing.listingTimeoutMs);
         const rows: SerpListing[] = Array.isArray(data.local_results) ? data.local_results : data.place_results ? [data.place_results] : [];
         const candidates = await Promise.all(rows.slice(0, 20).map(async (r) => { const fresh = normalizeListing(r, input); return preserveLeadHistory(fresh, (await get<Lead>('leads', fresh.id))); }));
         const ranked = rankCandidates(candidates, input);
         const verified: Lead[] = [], rejected: Lead[] = [...ranked.excludedLeads];
         const search = new SerpApiPresenceSearch(this.key);
+        const screeningEnds=Date.now()+this.timing.screeningBudgetMs;
         let next = 0;
         const assessed = new Map<number, Lead>();
         await Promise.all(Array.from({length:3},async()=>{
             while(next < ranked.leads.length){
                 const index=next++,candidate=ranked.leads[index];
                 const unknown=()=>({...candidate,presence:{status:'unknown' as const,checkedAt:new Date().toISOString(),queries:[],traces:[],reason:index>=10?'Awaiting presence checks: the initial search checked its first 10 candidates. Open this lead and run its presence check.':'Presence check exceeded its time limit. Open this lead and retry individually.'}});
-                if(index>=10){assessed.set(index,unknown());continue;}
+                if(index>=10||Date.now()>=screeningEnds){assessed.set(index,unknown());continue;}
                 try{
                     const lead=await deadline((async()=>{
                 const presence = await checkPresence(candidate, search);
@@ -106,9 +125,9 @@ export class SerpApiDiscoveryProvider implements DiscoveryProvider {
                         lead.presence = { ...presence, status: 'outdated-website', reason: inspection.evidence.join(' ') + ' Potential client for a website refresh; confirm visually before outreach.' };
                 }
                         return lead;
-                    })(),15000);
-                    if(isPotentialClient(lead)){
-                        try{assessed.set(index,{...lead,...await deadline(discoverEmails(lead),5000)});}catch{assessed.set(index,lead);}
+                    })(),Math.max(1,Math.min(this.timing.candidateTimeoutMs,screeningEnds-Date.now())));
+                    if(isPotentialClient(lead)&&Date.now()<screeningEnds){
+                        try{assessed.set(index,{...lead,...await deadline(discoverEmails(lead),Math.max(1,Math.min(this.timing.emailTimeoutMs,screeningEnds-Date.now())))});}catch{assessed.set(index,lead);}
                     }else assessed.set(index,lead);
                 }catch{assessed.set(index,unknown());}
             }
@@ -119,7 +138,7 @@ export class SerpApiDiscoveryProvider implements DiscoveryProvider {
         }
         const result = { leads: verified, excludedLeads: rejected, totalReviewed: ranked.totalReviewed };
         await Promise.all([...result.leads, ...result.excludedLeads].map(putLead));
-        return { ...result, provider: 'SerpApi', query: phrase, notice: `Reviewed ${result.totalReviewed} listings; ${verified.length} are potential clients (no website found or observed legacy website signals); ${rejected.length} excluded or unverified. Checked up to 10 candidates using bounded website inspections or two identity searches each (up to 21 provider requests including discovery). Discovery listings themselves are digital traces. Negative results do not prove absence. Evidence is available on each lead.` };
+        return { ...result, provider: 'SerpApi', query: phrase, notice: `Reviewed ${result.totalReviewed} listings; ${verified.length} are potential clients (no website found or observed legacy website signals); ${rejected.length} excluded or unverified. Checked up to 10 candidates within a shared screening time budget using bounded website inspections or two identity searches each (up to 22 provider requests including a discovery retry). Discovery listings themselves are digital traces. Negative results do not prove absence. Evidence is available on each lead.` };
     }
 }
 export async function discover(input: SearchInput) {

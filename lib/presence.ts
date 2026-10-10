@@ -30,8 +30,8 @@ export async function checkPresence(lead:Lead,search:PresenceSearch):Promise<Pre
  const quote=(s:string)=>`"${s.replace(/["\\]/g,' ')}"`;
  base.queries=[`${quote(lead.company)} ${quote(lead.listing.address)}`,`${quote(lead.company)} ${quote(lead.listing.phone)}`];
  try{
-  for(const query of base.queries){
-   const data=await search.search(query);
+  const responses=await Promise.all(base.queries.map(query=>search.search(query)));
+  for(const data of responses){
    if(data.error)throw new Error('Incomplete response');
    const rows=data.organic_results;
    if(!Array.isArray(rows)&&data.search_information?.organic_results_state!=='Fully empty')throw new Error('Incomplete response');
