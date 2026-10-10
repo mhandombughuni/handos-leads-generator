@@ -49,7 +49,7 @@ export async function GET(req: NextRequest, { params }: {
             return new NextResponse('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Handos unsubscribe</title></head><body><h1>Stop Handos emails</h1><form method="POST" action="' + action.replaceAll('&', '&amp;').replaceAll('"', '&quot;') + '"><button type="submit">Unsubscribe</button></form></body></html>', { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
         }
         if (path[0] === 'campaigns' && path[2] === 'sequence' && path.length === 3)
-            return NextResponse.json({ sequence: (await getCampaignSequence(path[1],req.nextUrl.searchParams.get('audience')||'general')) });
+            return NextResponse.json({ campaignId:path[1], audience:req.nextUrl.searchParams.get('audience')||'general', sequence: (await getCampaignSequence(path[1],req.nextUrl.searchParams.get('audience')||'general')) });
         if (key === 'leads')
             return NextResponse.json({ leads: (await all<Lead>('leads')).filter(l => req.nextUrl.searchParams.get('includeHistorical') === '1' || !l.company.includes('Demo branch')) });
         if (path[0] === 'leads' && path[1]) {

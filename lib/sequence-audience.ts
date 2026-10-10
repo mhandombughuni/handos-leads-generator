@@ -8,5 +8,5 @@ export function audienceForLead(lead:Lead){
   const text=[lead.company,...lead.listing?.categories||[]].join(' ');
   return /church|chapel|parish|congregation/i.test(text)?'churches':/christian|ministry|ministries|mission/i.test(text)?'christian-ngos':'community';
  }
- return 'general';
+ return TARGET_INDUSTRIES.find(i=>i.name===lead.industry)?.niches[0]?.id || 'general';
 }

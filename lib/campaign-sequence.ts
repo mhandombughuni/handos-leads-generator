@@ -1,4 +1,4 @@
-import nonprofitSequences from './nonprofit-sequences.json';
+import {defaultNicheSequence} from './niche-sequences';
 import {sequenceAudiences} from './sequence-audience';
 import { z } from 'zod';
 import { db, get } from './db';
@@ -14,7 +14,7 @@ export async function getCampaignSequence(campaignId: string, audience='general'
     const row = (await db().prepare('SELECT value FROM metadata WHERE key=?').get('sequence:' + campaignId + (audience==='general'?'':':'+audience))) as {
         value: string;
     } | undefined;
-    return row ? sequenceSchema.parse(JSON.parse(row.value)) : sequenceSchema.parse((nonprofitSequences as Record<string,unknown>)[audience]|| (audience==='general'?sequence:await getCampaignSequence(campaignId)));
+    return row ? sequenceSchema.parse(JSON.parse(row.value)) : sequenceSchema.parse(defaultNicheSequence(audience)|| (audience==='general'?sequence:await getCampaignSequence(campaignId)));
 }
 export async function saveCampaignSequence(campaignId: string, input: unknown, audience='general') {
     if (!(await get<Campaign>('campaigns', campaignId)))

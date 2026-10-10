@@ -33,3 +33,25 @@ test('church and nonprofit sequences use sector language and saved audience draf
   assert.deepEqual(await getCampaignSequence('campaign-1'),generic);
  }finally{globalThis.fetch=original;}
 });
+
+test('every search niche has valid matching defaults and business drafts can be customized independently',async()=>{
+ const {TARGET_INDUSTRIES}=await import('../lib/targeting');
+ const {sequenceSchema}=await import('../lib/campaign-sequence');
+ const {defaultNicheSequence}=await import('../lib/niche-sequences');
+ const base=(await get<Lead>('leads','lead-1'))!;
+ for(const industry of TARGET_INDUSTRIES)for(const niche of industry.niches){
+  const lead:Lead={...base,source:'manual',industry:industry.name,qualification:{...base.qualification!,nicheId:niche.id}};
+  assert.equal(audienceForLead(lead),niche.id);
+  const draft=sequenceSchema.parse(defaultNicheSequence(niche.id));
+  if(industry.name!=='Nonprofit')assert.ok(draft[0].A.body.includes(niche.label.toLowerCase()));
+ }
+ assert.equal(audienceForLead({...base,source:'manual',industry:'Automotive',qualification:undefined}),'auto-repair');
+ const roofing=await getCampaignSequence('campaign-1','roofing');
+ assert.match(roofing[0].A.body,/property owner requests a quote/);
+ const dental=await getCampaignSequence('campaign-1','dental');
+ assert.match(dental[0].A.body,/new-patient inquiry/);
+ roofing[0].A.subject='Reviewed roofing subject';
+ await saveCampaignSequence('campaign-1',roofing,'roofing');
+ assert.equal((await getCampaignSequence('campaign-1','roofing'))[0].A.subject,'Reviewed roofing subject');
+ assert.deepEqual(await getCampaignSequence('campaign-1','dental'),dental);
+});
