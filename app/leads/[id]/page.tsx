@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import {audienceForLead} from '@/lib/sequence-audience';
 import { SaveLeadButton } from '@/components/save-lead-button';
 import { presenceLabel } from '@/lib/opportunity';
 import { use, useState } from 'react';
@@ -19,7 +20,7 @@ export default function LeadDetail({params}:{params:Promise<{id:string}>}){
  const live=settings?.email.provider==='sendgrid';
  const {data:saved,setData:setSaved}=useData<{leads:Lead[]}>('/api/saved-leads');
  const refreshSaved=()=>{api<{leads:Lead[]}>('/api/saved-leads').then(setSaved).catch(e=>setFailure(e.message));};
- const {data:sequenceData}=useData<{sequence:CampaignSequence}>(`/api/campaigns/${campaign}/sequence`);
+ const {data:sequenceData}=useData<{sequence:CampaignSequence}>(`/api/campaigns/${campaign}/sequence?audience=${data?audienceForLead(data.lead):'general'}`);
  if(error)return <Notice error>{error}</Notice>;if(!data)return <Loading/>;const {lead,enrollments,messages,events,campaigns}=data;const preview=renderMessage(step,variant,lead,sequenceData?.sequence);const latest=[...messages].sort((a,b)=>b.sentAt.localeCompare(a.sentAt))[0];
  return <><Link className="back-link" href="/"><ArrowLeft size={16}/>Back to discovery</Link><PageTitle eyebrow="LEAD PROFILE" title={lead.company} description={`${lead.industry} · ${lead.listing?.address||[lead.city,lead.state,lead.zip].filter(Boolean).join(', ')}`} action={<div className="toolbar"><SaveLeadButton leadId={id} saved={!!saved?.leads.some(l=>l.id===id)} onChanged={refreshSaved}/><Badge tone="purple">{lead.source==='demo'?'Fictional demo lead':'Live discovery · unverified'}</Badge></div>}/>{notice&&<Notice>{notice}</Notice>}{failure&&<Notice error>{failure}</Notice>}<div className="detail-grid"><div>
  {lead.presence&&<section className="panel panel-padding presence-evidence"><h2>Independent digital presence checks</h2><Badge tone={lead.presence.status==='presence-found'?'blue':'amber'}>{presenceLabel(lead)}</Badge><p style={{marginTop:12}}>{lead.presence.reason.includes('verification limit reached')?'Awaiting presence checks; this listing was beyond the initial 10-candidate check limit.':lead.presence.reason}</p><button className="button secondary" disabled={busy} onClick={()=>action('/api/leads/'+id+'/presence-check',{})}>{busy?'Checking…':'Run presence check for this lead'}</button><small>Last assessment {new Date(lead.presence.checkedAt).toLocaleString()}</small><h3 style={{marginTop:16}}>Identity searches</h3>{!lead.presence.queries.length&&<p className="fine-print">No identity searches have run. A listed website may be used directly; otherwise independent checks require the listing’s address and phone.</p>}<ul>{lead.presence.queries.map(q=><li key={q}>{q}</li>)}</ul>{!!lead.presence.traces.length&&<><h3>Found traces</h3><ul>{lead.presence.traces.map(t=><li key={t.url}><Badge>{t.kind}</Badge> <a href={t.url} target="_blank" rel="noreferrer">{t.title||t.url} ↗</a></li>)}</ul></>}</section>}

@@ -1,3 +1,4 @@
+import { audienceForLead } from './sequence-audience';
 import { hasApprovedContact } from './contact-eligibility';
 import { validEmail } from './email-format';
 import { sendNotice } from './delivery-feedback';
@@ -76,7 +77,7 @@ export async function runLiveDue(now = new Date(), campaignId?: string, enrollme
             }
             if ((await all<Message>('messages')).some(m => m.enrollmentId === e.id && m.step === e.nextStep))
                 return null;
-            const message: Message = { id: randomUUID(), enrollmentId: e.id, step: e.nextStep, variant: e.variant, ...renderMessage(e.nextStep, e.variant, l, (await getCampaignSequence(e.campaignId))), sentAt: now.toISOString() };
+            const message: Message = { id: randomUUID(), enrollmentId: e.id, step: e.nextStep, variant: e.variant, ...renderMessage(e.nextStep, e.variant, l, (await getCampaignSequence(e.campaignId,audienceForLead(l)))), sentAt: now.toISOString() };
             (await putMessage(message));
             (await db().prepare('INSERT INTO deliveries VALUES (?,?,?)').run(message.id, 'sending', now.toISOString()));
             return message;

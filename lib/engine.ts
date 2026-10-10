@@ -1,3 +1,4 @@
+import { audienceForLead } from './sequence-audience';
 import { hasApprovedContact } from './contact-eligibility';
 import { validEmail } from './email-format';
 import { createHash, randomUUID } from 'node:crypto';
@@ -85,7 +86,7 @@ export async function runDue(now = new Date(), campaignId?: string, enrollmentId
                 (await putEnrollment({ ...e, status: 'suppressed' }));
                 continue;
             }
-            const m: Message = { id: randomUUID(), enrollmentId: e.id, step: e.nextStep, variant: e.variant, ...renderMessage(e.nextStep, e.variant, lead, (await getCampaignSequence(e.campaignId))), sentAt: now.toISOString() };
+            const m: Message = { id: randomUUID(), enrollmentId: e.id, step: e.nextStep, variant: e.variant, ...renderMessage(e.nextStep, e.variant, lead, (await getCampaignSequence(e.campaignId,audienceForLead(lead)))), sentAt: now.toISOString() };
             (await putMessage(m));
             (await putEvent({ id: randomUUID(), externalId: `demo-delivery-${m.id}`, messageId: m.id, type: 'delivered', occurredAt: now.toISOString(), revenue: 0 }));
             const nextStep = e.nextStep + 1;

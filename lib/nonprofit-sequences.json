@@ -1,0 +1,125 @@
+{
+  "churches": [
+    {
+      "step": 1,
+      "delayDays": 0,
+      "label": "Welcome first-time visitors",
+      "A": {
+        "subject": "A welcoming first step at {{company_name}}",
+        "body": "Hi {{company_name}} team,\n\nWhen someone is considering a first visit to {{company_name}}, can they easily find service times, directions, and a way to ask a question? We would be happy to offer a complimentary review of that experience.\n\nWould a brief, 15-minute walkthrough be useful? Choose a time here: https://handos.co\n\nBest,\nThe Handos team"
+      },
+      "B": {
+        "subject": "Helping people connect with {{company_name}}",
+        "body": "Hi {{company_name}} team,\n\nYour online presence can help newcomers feel welcome before they arrive. We can offer a short, practical review of how people find service information and connect with your church team.\n\nYou are welcome to arrange a short conversation here: https://handos.co\n\nBest,\nThe Handos team"
+      }
+    },
+    {
+      "step": 2,
+      "delayDays": 3,
+      "label": "Connect people with ministries",
+      "A": {
+        "subject": "Following up on ministry inquiries at {{company_name}}",
+        "body": "Hi {{company_name}} team,\n\nFollowing up on our offer: how do people ask about ministries, volunteering, or getting involved at {{company_name}}? We can review the inquiry path and suggest ways to make the next step clearer for visitors and your team.\n\nWould a brief, 15-minute walkthrough be useful? Choose a time here: https://handos.co\n\nBest,\nThe Handos team"
+      },
+      "B": {
+        "subject": "From a first visit to getting involved",
+        "body": "Hi {{company_name}} team,\n\nIs it straightforward for a newcomer to learn about ministries and reach the right person at {{company_name}}? A complimentary review could identify ways to make those connections easier without adding work for your team.\n\nYou are welcome to arrange a short conversation here: https://handos.co\n\nBest,\nThe Handos team"
+      }
+    },
+    {
+      "step": 3,
+      "delayDays": 7,
+      "label": "Support the church team",
+      "A": {
+        "subject": "Keeping church inquiries organized",
+        "body": "Hi {{company_name}} team,\n\nOne last note: when visitors and volunteers contact {{company_name}}, is it easy for your team to see which inquiries need a response? We can offer practical ideas for keeping follow-ups organized and reducing administrative work.\n\nWould a brief, 15-minute walkthrough be useful? Choose a time here: https://handos.co\n\nBest,\nThe Handos team"
+      },
+      "B": {
+        "subject": "Should we close the loop?",
+        "body": "Hi {{company_name}} team,\n\nWe will close the loop after this note. If your church team would find it helpful, we can offer a complimentary review of visitor information, ministry inquiries, and follow-up. If now is not the right time, no problem.\n\nYou are welcome to arrange a short conversation here: https://handos.co\n\nBest,\nThe Handos team"
+      }
+    }
+  ],
+  "christian-ngos": [
+    {
+      "step": 1,
+      "delayDays": 0,
+      "label": "Make the mission easy to discover",
+      "A": {
+        "subject": "Helping people connect with {{company_name}}",
+        "body": "Hi {{company_name}} team,\n\nWhen someone learns about {{company_name}}, can they easily understand your mission, explore your programs, and find a way to get involved? We would be glad to offer a complimentary review of that online journey.\n\nWould a brief, 15-minute walkthrough be useful? Choose a time here: https://handos.co\n\nBest,\nThe Handos team"
+      },
+      "B": {
+        "subject": "A practical digital review for your ministry",
+        "body": "Hi {{company_name}} team,\n\nClear online information can help supporters, volunteers, and people seeking assistance connect with your team. We can offer a short review of how {{company_name}} presents its mission and guides people to a useful next step.\n\nYou are welcome to arrange a short conversation here: https://handos.co\n\nBest,\nThe Handos team"
+      }
+    },
+    {
+      "step": 2,
+      "delayDays": 3,
+      "label": "Guide volunteers and supporters",
+      "A": {
+        "subject": "A clearer path to getting involved",
+        "body": "Hi {{company_name}} team,\n\nFollowing up on our offer: how do prospective volunteers and supporters ask about opportunities at {{company_name}}? We can review that journey and suggest practical ways to make inquiries easier to respond to.\n\nWould a brief, 15-minute walkthrough be useful? Choose a time here: https://handos.co\n\nBest,\nThe Handos team"
+      },
+      "B": {
+        "subject": "Connecting program inquiries with your team",
+        "body": "Hi {{company_name}} team,\n\nCan someone interested in your programs quickly find the appropriate information or contact at {{company_name}}? Our complimentary review can focus on clearer program information and straightforward inquiry follow-up.\n\nYou are welcome to arrange a short conversation here: https://handos.co\n\nBest,\nThe Handos team"
+      }
+    },
+    {
+      "step": 3,
+      "delayDays": 7,
+      "label": "Reduce administrative follow-up",
+      "A": {
+        "subject": "Keeping mission-related inquiries organized",
+        "body": "Hi {{company_name}} team,\n\nOne last note: how does your team keep track of volunteer, supporter, and program inquiries at {{company_name}}? A practical review could suggest ways to make follow-up more organized while respecting your existing work.\n\nWould a brief, 15-minute walkthrough be useful? Choose a time here: https://handos.co\n\nBest,\nThe Handos team"
+      },
+      "B": {
+        "subject": "An open invitation for {{company_name}}",
+        "body": "Hi {{company_name}} team,\n\nWe will leave the invitation here. If {{company_name}} is reviewing its online presence or inquiry process, we would be glad to offer a complimentary walkthrough with a few practical ideas. If now is not the right time, no problem.\n\nYou are welcome to arrange a short conversation here: https://handos.co\n\nBest,\nThe Handos team"
+      }
+    }
+  ],
+  "community": [
+    {
+      "step": 1,
+      "delayDays": 0,
+      "label": "Introduce the organization",
+      "A": {
+        "subject": "A clearer first step for {{company_name}}",
+        "body": "Hi {{company_name}} team,\n\nWhen someone discovers {{company_name}}, can they easily understand your programs and find a way to connect? We would be happy to offer a complimentary review of your online information and inquiry experience.\n\nWould a brief, 15-minute walkthrough be useful? Choose a time here: https://handos.co\n\nBest,\nThe Handos team"
+      },
+      "B": {
+        "subject": "Helping your community connect",
+        "body": "Hi {{company_name}} team,\n\nWe can offer a short digital review focused on how community members, volunteers, and supporters find information about {{company_name}} and reach your team.\n\nYou are welcome to arrange a short conversation here: https://handos.co\n\nBest,\nThe Handos team"
+      }
+    },
+    {
+      "step": 2,
+      "delayDays": 3,
+      "label": "Support program inquiries",
+      "A": {
+        "subject": "Following up on program inquiries",
+        "body": "Hi {{company_name}} team,\n\nHow do people ask about programs or volunteering at {{company_name}}? Our complimentary review can suggest ways to make those inquiries clearer for participants and easier for your team to follow up.\n\nWould a brief, 15-minute walkthrough be useful? Choose a time here: https://handos.co\n\nBest,\nThe Handos team"
+      },
+      "B": {
+        "subject": "From interest to participation",
+        "body": "Hi {{company_name}} team,\n\nIs it clear what someone should do after learning about a program at {{company_name}}? We can review that path and offer practical suggestions for information, inquiries, and registration where relevant.\n\nYou are welcome to arrange a short conversation here: https://handos.co\n\nBest,\nThe Handos team"
+      }
+    },
+    {
+      "step": 3,
+      "delayDays": 7,
+      "label": "Organize nonprofit follow-up",
+      "A": {
+        "subject": "One place to follow up at {{company_name}}",
+        "body": "Hi {{company_name}} team,\n\nOne last note: is it easy for your team to track program, volunteer, and supporter inquiries? We can offer a practical review of how {{company_name}} organizes follow-up and helps people take their next step.\n\nWould a brief, 15-minute walkthrough be useful? Choose a time here: https://handos.co\n\nBest,\nThe Handos team"
+      },
+      "B": {
+        "subject": "Should we close the loop?",
+        "body": "Hi {{company_name}} team,\n\nWe will close the loop after this note. If your team would find it useful, our offer of a complimentary digital presence and inquiry review remains open. If now is not the right time, no problem.\n\nYou are welcome to arrange a short conversation here: https://handos.co\n\nBest,\nThe Handos team"
+      }
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import {generateSequenceDraft} from '@/lib/sequence-draft';
 import {reviewLeadPresence} from '@/lib/presence-review';
 import { approveManualOutreach, createManualLead, saveContactDraft } from '@/lib/manual-leads';
 import { publicError } from '@/lib/public-errors';
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest, { params }: {
         const { path } = await params;
         const key = path.join('/');
         if (key === 'settings')
-            return NextResponse.json({ liveDiscovery: process.env.DISCOVERY_PROVIDER === 'serpapi' && !!process.env.SERPAPI_KEY, contactEnrichment: !!process.env.HUNTER_API_KEY, email: deliveryConfig() });
+            return NextResponse.json({ liveDiscovery: process.env.DISCOVERY_PROVIDER === 'serpapi' && !!process.env.SERPAPI_KEY, contactEnrichment: !!process.env.HUNTER_API_KEY, aiDrafting: !!process.env.OPENAI_API_KEY, email: deliveryConfig() });
         if (key === 'saved-leads')
             return NextResponse.json({ leads: (await savedLeads()) });
         if (key === 'health')
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest, { params }: {
             return new NextResponse('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Handos unsubscribe</title></head><body><h1>Stop Handos emails</h1><form method="POST" action="' + action.replaceAll('&', '&amp;').replaceAll('"', '&quot;') + '"><button type="submit">Unsubscribe</button></form></body></html>', { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
         }
         if (path[0] === 'campaigns' && path[2] === 'sequence' && path.length === 3)
-            return NextResponse.json({ sequence: (await getCampaignSequence(path[1])) });
+            return NextResponse.json({ sequence: (await getCampaignSequence(path[1],req.nextUrl.searchParams.get('audience')||'general')) });
         if (key === 'leads')
             return NextResponse.json({ leads: (await all<Lead>('leads')).filter(l => req.nextUrl.searchParams.get('includeHistorical') === '1' || !l.company.includes('Demo branch')) });
         if (path[0] === 'leads' && path[1]) {
@@ -105,6 +106,7 @@ export async function POST(req: NextRequest, { params }: {
         if (key === 'jobs/run' && !authorized(req, process.env.CRON_SECRET))
             return NextResponse.json({ error: 'A valid scheduler bearer secret is required.' }, { status: 401 });
         const body = await req.json();
+        if(path[0]==='campaigns'&&path[2]==='sequence-draft'&&path.length===3){if(!await get<Campaign>('campaigns',path[1]))throw new Error('Campaign not found.');const p=z.object({audience:z.string().max(80)}).strict().parse(body);return NextResponse.json(await generateSequenceDraft(p.audience));}
         if(path[0]==='leads'&&path[2]==='outreach-approval'&&path.length===3)return NextResponse.json(await approveManualOutreach(path[1],body));
         if(path[0]==='leads'&&path[2]==='presence-check'&&path.length===3){z.object({}).strict().parse(body);return NextResponse.json(await reviewLeadPresence(path[1]));}
         if (key === 'saved-leads/manual') return NextResponse.json(await createManualLead(body));
@@ -160,7 +162,7 @@ export async function POST(req: NextRequest, { params }: {
             return NextResponse.json((await reconcileDelivery(path[1], p.outcome)));
         }
         if (path[0] === 'campaigns' && path[2] === 'sequence' && path.length === 3)
-            return NextResponse.json({ sequence: (await saveCampaignSequence(path[1], body)), notice: 'Campaign sequence saved. Future messages use these templates.' });
+            return NextResponse.json({ sequence: (await saveCampaignSequence(path[1], body,req.nextUrl.searchParams.get('audience')||'general')), notice: 'Campaign sequence saved. Future messages use these templates.' });
         if (path[0] === 'leads' && path[2] === 'readiness' && path.length === 3) {
             const readiness = z.object({ decisionMaker: z.boolean(), needConfirmed: z.boolean(), budgetConfirmed: z.boolean(), timelineConfirmed: z.boolean() }).strict().parse(body);
             const lead = (await transaction(async () => { const lead = (await get<Lead>('leads', path[1])); if (!lead)
