@@ -1,0 +1,1 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {deadline} from '../lib/deadline';test('hung presence work has a deadline and completed work retains results',async()=>{assert.equal(await deadline(Promise.resolve('ok'),100),'ok');await assert.rejects(deadline(new Promise(()=>{}),10),/timed out/);});

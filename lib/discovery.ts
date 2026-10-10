@@ -1,3 +1,4 @@
+import { deadline } from './deadline';
 import { discoverEmails } from './email-discovery';
 import { inspectWebsite } from './website-inspection';
 import { isPotentialClient } from './opportunity';
@@ -87,28 +88,34 @@ export class SerpApiDiscoveryProvider implements DiscoveryProvider {
         const ranked = rankCandidates(candidates, input);
         const verified: Lead[] = [], rejected: Lead[] = [...ranked.excludedLeads];
         const search = new SerpApiPresenceSearch(this.key);
-        let checked = 0;
-        for (const candidate of ranked.leads) {
-            if (checked >= 10) {
-                rejected.push({ ...candidate, presence: { status: 'unknown', checkedAt: new Date().toISOString(), queries: [], traces: [], reason: 'Awaiting presence checks: the initial search checked its first 10 candidates. Open this lead and run its presence check.' } });
-                continue;
+        let next = 0;
+        const assessed = new Map<number, Lead>();
+        await Promise.all(Array.from({length:3},async()=>{
+            while(next < ranked.leads.length){
+                const index=next++,candidate=ranked.leads[index];
+                const unknown=()=>({...candidate,presence:{status:'unknown' as const,checkedAt:new Date().toISOString(),queries:[],traces:[],reason:index>=10?'Awaiting presence checks: the initial search checked its first 10 candidates. Open this lead and run its presence check.':'Presence check exceeded its time limit. Open this lead and retry individually.'}});
+                if(index>=10){assessed.set(index,unknown());continue;}
+                try{
+                    const lead=await deadline((async()=>{
+                const presence = await checkPresence(candidate, search);
+                let lead: Lead = { ...candidate, presence };
+                if (candidate.website) {
+                    const inspection = await this.inspect(candidate.website);
+                    lead = { ...lead, websiteInspection: inspection, signals: inspection.signals, audit: scoreAudit(inspection.signals, inspection.status === 'inspected' ? 'observed' : 'unverified') };
+                    if (inspection.signals.staleDesign)
+                        lead.presence = { ...presence, status: 'outdated-website', reason: inspection.evidence.join(' ') + ' Potential client for a website refresh; confirm visually before outreach.' };
+                }
+                        return lead;
+                    })(),15000);
+                    if(isPotentialClient(lead)){
+                        try{assessed.set(index,{...lead,...await deadline(discoverEmails(lead),5000)});}catch{assessed.set(index,lead);}
+                    }else assessed.set(index,lead);
+                }catch{assessed.set(index,unknown());}
             }
-            checked++;
-            const presence = await checkPresence(candidate, search);
-            let lead: Lead = { ...candidate, presence };
-            if (candidate.website) {
-                const inspection = await this.inspect(candidate.website);
-                lead = { ...lead, websiteInspection: inspection, signals: inspection.signals, audit: scoreAudit(inspection.signals, inspection.status === 'inspected' ? 'observed' : 'unverified') };
-                if (inspection.signals.staleDesign)
-                    lead.presence = { ...presence, status: 'outdated-website', reason: inspection.evidence.join(' ') + ' Potential client for a website refresh; confirm visually before outreach.' };
-            }
-            // Never convert limited negative search evidence into a definitive no-website audit.
-            if (isPotentialClient(lead)) {
-                lead = { ...lead, ...await discoverEmails(lead) };
-                verified.push(lead);
-            }
-            else
-                rejected.push(lead);
+        }));
+        for(let index=0;index<ranked.leads.length;index++){
+            const lead=assessed.get(index)!;
+            (isPotentialClient(lead)?verified:rejected).push(lead);
         }
         const result = { leads: verified, excludedLeads: rejected, totalReviewed: ranked.totalReviewed };
         await Promise.all([...result.leads, ...result.excludedLeads].map(putLead));

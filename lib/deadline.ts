@@ -1,0 +1,1 @@
+export async function deadline<T>(work:Promise<T>,ms:number):Promise<T>{let timer:ReturnType<typeof setTimeout>|undefined;try{return await Promise.race([work,new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error('Presence check timed out. Retry this lead individually.')),ms);})]);}finally{if(timer)clearTimeout(timer);}}
