@@ -230,3 +230,6 @@ The canonical source is `https://github.com/mhandombughuni/handos-leads-generato
 Run `npm test` and `npm run build`, commit the source changes, and push `main`. The connected Vercel project `handos-leads-generator` deploys this branch; verify the deployment commit SHA before treating a change as live. Production credentials are managed in Vercel, and local credentials belong in an ignored `.env.local`. Do not commit credentials, local databases, or `.vercel` metadata.
 
 A CLI deployment uploads local files without pushing a Git commit. For normal production updates, use the connected Git deployment flow so GitHub and production stay aligned.
+
+## Prospecting map
+The Discovery hero uses lazy-loaded Leaflet and a bundled GeoNames US city index. A map click selects the nearest indexed city within 25 km, sets City mode, and leaves search submission to the user. This is a nearby-city suggestion, not boundary or address reverse geocoding; towns below the index population threshold can be entered manually. No browser geolocation or external geocoding is used. Map tiles load only for the visible viewport. Configure `NEXT_PUBLIC_MAP_TILE_URL` and `NEXT_PUBLIC_MAP_ATTRIBUTION` together to use another provider. Default OpenStreetMap tiles are best-effort and follow https://operations.osmfoundation.org/policies/tiles/; manual search remains available if they fail.

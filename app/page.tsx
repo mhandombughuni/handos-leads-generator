@@ -1,6 +1,8 @@
 'use client';
 import { BulkContacts } from '@/components/bulk-contacts';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+const ProspectMap=dynamic(()=>import('@/components/prospect-map'),{ssr:false,loading:()=> <section className="prospect-map-hero prospect-map-loading">Loading map… Manual search is available below.</section>});
 import { SaveLeadButton } from '@/components/save-lead-button';
 import { isPotentialClient, presenceLabel } from '@/lib/opportunity';
 import { useEffect, useState } from 'react';
@@ -36,6 +38,7 @@ export default function DiscoverPage(){
  if(!restored)return <Loading/>;
  return <>
  <PageTitle eyebrow="PROSPECTING / DISCOVERY" title="Find your next opportunity" description="Discover businesses without a website or with observed legacy website signals." action={<button className="button secondary" onClick={()=>setShowSaved(!showSaved)}>Saved searches</button>}/>
+ <ProspectMap location={location} onSelect={value=>{setLocationType('city');setLocation(value);}}/>
  {showSaved&&<section className="panel panel-padding"><div className="selection-toolbar"><h2>Saved searches</h2><button className="button secondary" onClick={saveSearch}>Save current search</button></div>{saved.map((s,i)=><button className="button subtle" key={i} onClick={()=>{setLocationType(s.locationType);setLocation(s.location);setIndustry(s.industry);setNicheId(s.nicheId!);setExcludeLarge(s.excludeLarge!==false);setExcludeTerms(s.excludeTerms||'');setShowSaved(false);}}>{s.location} · {s.industry} · {TARGET_INDUSTRIES.find(i=>i.name===s.industry)?.niches.find(n=>n.id===s.nicheId)?.label}</button>)}{!saved.length&&<p className="muted">Save your current location and industry to reuse them.</p>}</section>}
  <Notice>{settings?.liveDiscovery?'Live discovery · Directory-only results and legacy websites are potential clients. Other website/social results and incomplete checks stay excluded.':'Demo workspace · Fictional records. Local enrollment and reporting work; no email is sent.'}</Notice>
  <section className="discovery-panel"><form onSubmit={search}><div className="location-mode"><strong>Search by one location</strong><div className="segmented">{(['zip','city','state'] as const).map(v=><button type="button" key={v} aria-pressed={locationType===v} className={locationType===v?'selected':''} onClick={()=>{setLocationType(v);setLocation(v==='zip'?'22030':v==='state'?'VA':'Fairfax, VA');}}>{v==='zip'?'ZIP code':v==='city'?'City':'State'}</button>)}</div><small>Location AND industry · one mode at a time</small></div>

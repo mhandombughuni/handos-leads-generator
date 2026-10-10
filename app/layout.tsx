@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Shell } from '@/components/shell';
+import 'leaflet/dist/leaflet.css';
 import './globals.css';
 import './figma.css';
 export const metadata:Metadata={title:'Handos · Lead Engine',description:'Discover opportunities. Start thoughtful conversations. Measure what matters.',icons:{icon:{url:'/favicon.svg?v=86c3edc3dc03',type:'image/svg+xml'}}};
