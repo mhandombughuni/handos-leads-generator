@@ -103,3 +103,14 @@ test('provider sends one narrow query and persists returned evidence without exp
         globalThis.fetch = original;
     }
 });
+
+test('nonprofit faith-based searches distinguish churches and Christian NGOs', () => {
+ const church={...input,industry:'Nonprofit',nicheId:'churches'};
+ const ngo={...input,industry:'Nonprofit',nicheId:'christian-ngos'};
+ assert.equal(searchPhrase(church),'Christian church in Boston');
+ assert.equal(searchPhrase(ngo),'Christian nonprofit organization in Boston');
+ assert.equal(qualifyLead(make('Grace Community Church','Church'),church).matchedNiche,true);
+ assert.equal(qualifyLead(make('Christian Relief Ministries','Nonprofit organization'),ngo).matchedNiche,true);
+ assert.equal(qualifyLead(make('Harbor Pizza','Pizza restaurant'),church).matchedNiche,false);
+ assert.equal(qualifyLead(make('Neighborhood Food Bank','Nonprofit organization'),ngo).matchedNiche,false);
+});
