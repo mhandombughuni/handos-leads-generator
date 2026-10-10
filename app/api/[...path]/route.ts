@@ -37,7 +37,7 @@ export async function GET(req: NextRequest, { params }: {
         if (key === 'saved-leads')
             return NextResponse.json({ leads: (await savedLeads()) });
         if (key === 'health')
-            return NextResponse.json({ status: 'ok' });
+            return NextResponse.json({ status: 'ok', revision: process.env.VERCEL_GIT_COMMIT_SHA || null });
         if (key === 'deliveries')
             return NextResponse.json({ deliveries: (await deliveries()) });
         if (key === 'unsubscribe') {
