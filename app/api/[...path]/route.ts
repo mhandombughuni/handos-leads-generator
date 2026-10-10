@@ -7,7 +7,7 @@ import { savedLeads, saveLead, enrollSavedLeads } from '@/lib/saved-leads';
 import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
-import { all, get, putLead, transaction } from '@/lib/db';
+import { all, get, putLead, transaction, withDatabaseRequest } from '@/lib/db';
 import { getNiche } from '@/lib/targeting';
 import { discover } from '@/lib/discovery';
 import { enroll, experiment, recordEvent, runDue } from '@/lib/engine';
@@ -26,7 +26,7 @@ const eventSchema = z.object({ externalId: z.string().min(1).max(200), messageId
 const filterSchema = z.object({ source:z.enum(['live','demo']).optional(), from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), category: z.string().max(100).optional(), campaignId: z.string().max(100).optional() }).refine(v => !v.from || !v.to || v.from <= v.to, 'Start date must precede end date.');
 function authorized(req: NextRequest, secret: string | undefined) { if (!secret)
     return false; const a = Buffer.from(req.headers.get('authorization') || ''), b = Buffer.from(`Bearer ${secret}`); return a.length === b.length && timingSafeEqual(a, b); }
-export async function GET(req: NextRequest, { params }: {
+async function handleGET(req: NextRequest, { params }: {
     params: Promise<{
         path: string[];
     }>;
@@ -77,7 +77,7 @@ export async function GET(req: NextRequest, { params }: {
         return failure(e);
     }
 }
-export async function POST(req: NextRequest, { params }: {
+async function handlePOST(req: NextRequest, { params }: {
     params: Promise<{
         path: string[];
     }>;
@@ -200,3 +200,6 @@ function failure(e: unknown) {
  if(result.status===503)console.error('Handos database request failed',{code:result.code||'DATABASE_UNAVAILABLE'});
  return NextResponse.json({error:result.message,...result.code?{code:result.code}:{}},{status:result.status});
 }
+
+export async function GET(req:NextRequest,context:{params:Promise<{path:string[]}>}){return withDatabaseRequest(()=>handleGET(req,context));}
+export async function POST(req:NextRequest,context:{params:Promise<{path:string[]}>}){return withDatabaseRequest(()=>handlePOST(req,context));}

@@ -3,12 +3,19 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import postgres from 'postgres';
 import { db as sqlite } from './sqlite';
 import type { Lead, Enrollment, Message, TrackingEvent } from './types';
-const context=new AsyncLocalStorage<{sql?:any;sqlite?:boolean}>();
+const context=new AsyncLocalStorage<{sql?:any;sqlite?:boolean;pool?:ReturnType<typeof postgres>}>();
 let pool:ReturnType<typeof postgres>|undefined;
 const usePostgres=()=>process.env.DATABASE_PROVIDER==='supabase';
-function connection(){
+function createConnection(){
  if(!process.env.SUPABASE_DATABASE_URL)throw new Error('SUPABASE_DATABASE_URL is required.');
- return pool??=postgres(validateDatabaseURL(process.env.SUPABASE_DATABASE_URL),{prepare:false,ssl:'require',max:3,connect_timeout:10,idle_timeout:20,onnotice:()=>{},connection:{search_path:'handos'}});
+ return postgres(validateDatabaseURL(process.env.SUPABASE_DATABASE_URL),{prepare:false,ssl:'require',max:3,connect_timeout:10,idle_timeout:5,onnotice:()=>{},connection:{search_path:'handos'}});
+}
+function connection(){return context.getStore()?.pool || (pool??=createConnection());}
+// Serverless instances can suspend with stale sockets. Close request pools before returning.
+export async function withDatabaseRequest<T>(work:()=>Promise<T>):Promise<T>{
+ if(!usePostgres())return work();
+ const requestPool=createConnection();
+ try{return await context.run({pool:requestPool},work);}finally{await requestPool.end({timeout:1});}
 }
 function postgresSQL(input:string){
  let i=0;let sql=input.replace(/\?/g,()=>'$'+(++i));
@@ -27,7 +34,7 @@ export function db(){
 let serial=Promise.resolve();
 export async function transaction<T>(fn:()=>T|Promise<T>):Promise<T>{
  if(context.getStore())return fn();
- if(usePostgres())return connection().begin(async sql=>{await sql`select pg_advisory_xact_lock(73490201)`;return context.run({sql},fn);}) as Promise<T>;
+ if(usePostgres())return connection().begin(async sql=>{await sql`select pg_advisory_xact_lock(73490201)`;return context.run({...context.getStore(),sql},fn);}) as Promise<T>;
  let unlock!:()=>void;const previous=serial;serial=new Promise<void>(r=>unlock=r);await previous;
  // Initialize/seed before BEGIN because SQLite demo seeding opens its own transaction.
  const local=sqlite();local.exec('BEGIN IMMEDIATE');
