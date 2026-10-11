@@ -33,7 +33,7 @@ export function db(){
 }
 let serial=Promise.resolve();
 export async function transaction<T>(fn:()=>T|Promise<T>):Promise<T>{
- if(context.getStore())return fn();
+ if(context.getStore()?.sql||context.getStore()?.sqlite)return fn();
  if(usePostgres())return connection().begin(async sql=>{await sql`select pg_advisory_xact_lock(73490201)`;return context.run({...context.getStore(),sql},fn);}) as Promise<T>;
  let unlock!:()=>void;const previous=serial;serial=new Promise<void>(r=>unlock=r);await previous;
  // Initialize/seed before BEGIN because SQLite demo seeding opens its own transaction.
@@ -41,7 +41,11 @@ export async function transaction<T>(fn:()=>T|Promise<T>):Promise<T>{
  try{const result=await context.run({sqlite:true},fn);local.exec('COMMIT');return result;}catch(e){local.exec('ROLLBACK');throw e;}finally{unlock();}
 }
 type Table='leads'|'campaigns'|'enrollments'|'messages'|'events';
-export async function all<T>(table:Table):Promise<T[]>{return (await db().prepare(`SELECT data FROM ${table}`).all()).map(r=>JSON.parse(r.data));}
+export async function all<T>(table:Table):Promise<T[]>{
+ if(table!=='leads'||!usePostgres())return (await db().prepare(`SELECT data FROM ${table}`).all()).map(r=>JSON.parse(r.data));
+ const result:T[]=[];let cursor='';
+ while(true){const rows=await db().prepare('SELECT id,data FROM leads WHERE id>? ORDER BY id LIMIT 100').all(cursor);result.push(...rows.map(r=>JSON.parse(r.data)));if(rows.length<100)return result;cursor=rows[rows.length-1].id;}
+}
 export async function get<T>(table:Table,id:string):Promise<T|undefined>{const row=await db().prepare(`SELECT data FROM ${table} WHERE id=?`).get(id);return row?JSON.parse(row.data):undefined;}
 export async function putLead(l:Lead){await db().prepare('INSERT INTO leads(id,data) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(l.id,JSON.stringify(l));}
 export async function putEnrollment(e:Enrollment){await db().prepare('INSERT INTO enrollments(id,lead_id,campaign_id,data) VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(e.id,e.leadId,e.campaignId,JSON.stringify(e));}

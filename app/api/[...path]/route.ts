@@ -63,9 +63,10 @@ async function handleGET(req: NextRequest, { params }: {
         }
         if (key === 'campaigns') {
             const source = z.enum(['live', 'demo']).parse(req.nextUrl.searchParams.get('source') || (process.env.EMAIL_PROVIDER === 'sendgrid' ? 'live' : 'demo'));
-            const leads = new Map((await all<Lead>('leads')).map(l => [l.id, l]));
-            const enrollments = (await all<Enrollment>('enrollments')).filter(e => source === 'demo' ? leads.get(e.leadId)?.source === 'demo' : !!leads.get(e.leadId) && leads.get(e.leadId)?.source !== 'demo');
-            return NextResponse.json({ source, campaigns: await Promise.all((await listCampaigns()).map(async (c) => ({ ...c, sequence: await getCampaignSequence(c.id), experiment: await experiment(c.id, source), enrollments: enrollments.filter(e => e.campaignId === c.id) }))), sequence });
+            const [leadRows,enrollmentRows,messageRows,eventRows]=await Promise.all([all<Lead>('leads'),all<Enrollment>('enrollments'),all<Message>('messages'),all<TrackingEvent>('events')]);
+            const leads = new Map(leadRows.map(l => [l.id, l]));
+            const enrollments = enrollmentRows.filter(e => source === 'demo' ? leads.get(e.leadId)?.source === 'demo' : !!leads.get(e.leadId) && leads.get(e.leadId)?.source !== 'demo');
+            return NextResponse.json({ source, campaigns: await Promise.all((await listCampaigns()).map(async (c) => ({ ...c, sequence: await getCampaignSequence(c.id), experiment: await experiment(c.id, source,{leads:leadRows,enrollments:enrollmentRows,messages:messageRows,events:eventRows}), enrollments: enrollments.filter(e => e.campaignId === c.id) }))), sequence });
         }
         if (key === 'analytics' || key === 'export') {
             const filters = filterSchema.parse(Object.fromEntries(req.nextUrl.searchParams));

@@ -7,11 +7,12 @@ import { renderMessage } from './sequence';
 import { getCampaignSequence } from './campaign-sequence';
 import type { Campaign, Enrollment, EventType, Lead, Message, TrackingEvent, Variant } from './types';
 const stops: EventType[] = ['reply', 'bounce', 'unsubscribe', 'booked-demo'];
-export async function experiment(campaignId: string, source: 'live'|'demo' = process.env.EMAIL_PROVIDER === 'sendgrid' ? 'live' : 'demo') {
-    const leads = new Map((await all<Lead>('leads')).map(l => [l.id, l]));
-    const ids = new Set((await all<Enrollment>('enrollments')).filter(e => e.campaignId === campaignId && (source === 'demo' ? leads.get(e.leadId)?.source === 'demo' : !!leads.get(e.leadId) && leads.get(e.leadId)?.source !== 'demo')).map(e => e.id));
-    const messages = (await all<Message>('messages')).filter(m => ids.has(m.enrollmentId) && m.step === 1);
-    const events = (await all<TrackingEvent>('events'));
+export type ExperimentData={leads:Lead[];enrollments:Enrollment[];messages:Message[];events:TrackingEvent[]};
+export async function experiment(campaignId: string, source: 'live'|'demo' = process.env.EMAIL_PROVIDER === 'sendgrid' ? 'live' : 'demo', data?:ExperimentData) {
+    const leads = new Map((data?.leads||await all<Lead>('leads')).map(l => [l.id, l]));
+    const ids = new Set((data?.enrollments||await all<Enrollment>('enrollments')).filter(e => e.campaignId === campaignId && (source === 'demo' ? leads.get(e.leadId)?.source === 'demo' : !!leads.get(e.leadId) && leads.get(e.leadId)?.source !== 'demo')).map(e => e.id));
+    const messages = (data?.messages||await all<Message>('messages')).filter(m => ids.has(m.enrollmentId) && m.step === 1);
+    const events = data?.events||await all<TrackingEvent>('events');
     const variants = (['A', 'B'] as Variant[]).map(variant => {
         const mids = new Set(messages.filter(m => m.variant === variant).map(m => m.id));
         const delivered = new Set(events.filter(e => mids.has(e.messageId) && e.type === 'delivered').map(e => e.messageId));
