@@ -1,10 +1,9 @@
+import {renderLeadMessage} from './message-drafts';
 import {getCampaign} from './campaigns';
 import { hasApprovedContact } from './contact-eligibility';
 import { validEmail } from './email-format';
 import { createHash, randomUUID } from 'node:crypto';
 import { all, db, get, putEnrollment, putEvent, putMessage, transaction } from './db';
-import { renderMessage } from './sequence';
-import { getCampaignSequence } from './campaign-sequence';
 import type { Campaign, Enrollment, EventType, Lead, Message, TrackingEvent, Variant } from './types';
 const stops: EventType[] = ['reply', 'bounce', 'unsubscribe', 'booked-demo'];
 export type ExperimentData={leads:Lead[];enrollments:Enrollment[];messages:Message[];events:TrackingEvent[]};
@@ -88,7 +87,7 @@ export async function runDue(now = new Date(), campaignId?: string, enrollmentId
                 (await putEnrollment({ ...e, status: 'suppressed' }));
                 continue;
             }
-            const m: Message = { id: randomUUID(), enrollmentId: e.id, step: e.nextStep, variant: e.variant, ...renderMessage(e.nextStep, e.variant, lead, (await getCampaignSequence(e.campaignId))), sentAt: now.toISOString() };
+            const m: Message = { id: randomUUID(), enrollmentId: e.id, step: e.nextStep, variant: e.variant, ...await renderLeadMessage(lead,e.campaignId,e.nextStep,e.variant), sentAt: now.toISOString() };
             (await putMessage(m));
             (await putEvent({ id: randomUUID(), externalId: `demo-delivery-${m.id}`, messageId: m.id, type: 'delivered', occurredAt: now.toISOString(), revenue: 0 }));
             const nextStep = e.nextStep + 1;

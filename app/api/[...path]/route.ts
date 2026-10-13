@@ -1,3 +1,4 @@
+import {getMessageDrafts,saveMessageDraft,messageDraftSchema} from '@/lib/message-drafts';
 import {audienceForCampaign,listCampaigns} from '@/lib/campaigns';
 import {generateSequenceDraft} from '@/lib/sequence-draft';
 import {reviewLeadPresence} from '@/lib/presence-review';
@@ -53,6 +54,7 @@ async function handleGET(req: NextRequest, { params }: {
             return NextResponse.json({ campaignId:path[1], audience:audienceForCampaign(path[1]), sequence: (await getCampaignSequence(path[1],req.nextUrl.searchParams.get('audience')||'general')) });
         if (key === 'leads')
             return NextResponse.json({ leads: (await all<Lead>('leads')).filter(l => req.nextUrl.searchParams.get('includeHistorical') === '1' || !l.company.includes('Demo branch')) });
+        if(path[0]==='leads'&&path[2]==='message-drafts'&&path.length===3){const campaignId=z.string().min(1).parse(req.nextUrl.searchParams.get('campaignId'));return NextResponse.json({campaignId,drafts:await getMessageDrafts(path[1],campaignId)});}
         if (path[0] === 'leads' && path[1]) {
             const lead = (await get<Lead>('leads', path[1]));
             if (!lead)
@@ -117,11 +119,13 @@ async function handlePOST(req: NextRequest, { params }: {
             const p = z.object({ saved: z.boolean() }).strict().parse(body);
             return NextResponse.json((await saveLead(path[1], p.saved)));
         }
+        if(path[0]==='leads'&&path[2]==='message-draft'&&path.length===3){const p=z.object({campaignId:z.string().min(1),draft:messageDraftSchema}).strict().parse(body);return NextResponse.json({draft:await saveMessageDraft(path[1],p.campaignId,p.draft),notice:'Draft saved for this lead and campaign only.'});}
         if (path[0]==='leads'&&path[2]==='send'&&path.length===3){
-            const p=z.object({campaignId:z.string().min(1)}).strict().parse(body);
+            const p=z.object({campaignId:z.string().min(1),draft:messageDraftSchema.optional()}).strict().parse(body);
             const live=process.env.EMAIL_PROVIDER==='sendgrid';
             if(live){const c=deliveryConfig();if(!c.ready||!c.enabled)throw new Error('Live sending is disabled or incomplete.');}
             const enrollment=await enroll(path[1],p.campaignId);
+            if(p.draft){if(enrollment.status!=='active'||enrollment.nextStep!==p.draft.step)throw new Error('Choose the next unsent step ('+enrollment.nextStep+') before sending.');await saveMessageDraft(path[1],p.campaignId,p.draft);}
             const result=live?await runLiveDue(new Date(),p.campaignId,[enrollment.id]):await runDue(new Date(),p.campaignId,[enrollment.id]);
             return NextResponse.json(result);
         }
