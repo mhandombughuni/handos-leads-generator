@@ -113,11 +113,16 @@ export async function runLiveDue(now = new Date(), campaignId?: string, enrollme
     return {...result,notice:sendNotice(result)};
 }
 export const webhookSchema = z.array(z.object({ sg_event_id: z.string().min(1), handos_message_id: z.string().optional(), event: z.string(), timestamp: z.number().int().nonnegative() })).max(1000);
+function webhookPublicKey(){
+ const value=(process.env.SENDGRID_WEBHOOK_PUBLIC_KEY||'').trim().replaceAll('\\n','\n');
+ return value.includes('BEGIN PUBLIC KEY')?createPublicKey(value):createPublicKey({key:Buffer.from(value,'base64'),format:'der',type:'spki'});
+}
+export function sendGridWebhookKeyValid(){try{const key=webhookPublicKey();return key.asymmetricKeyType==='ec'&&key.asymmetricKeyDetails?.namedCurve==='prime256v1';}catch{return false;}}
 export function verifySendGridSignature(raw: string, timestamp: string, signature: string) {
     try {
         if (!/^\d+$/.test(timestamp) || Math.abs(Date.now() / 1000 - Number(timestamp)) > 300)
             return false;
-        const key = createPublicKey({ key: Buffer.from(process.env.SENDGRID_WEBHOOK_PUBLIC_KEY || '', 'base64'), format: 'der', type: 'spki' });
+        const key = webhookPublicKey();
         return verify('sha256', Buffer.from(timestamp + raw), key, Buffer.from(signature, 'base64'));
     }
     catch {

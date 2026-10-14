@@ -1,3 +1,4 @@
+import {sendGridStatistics} from '@/lib/sendgrid-statistics';
 import {getMessageDrafts,saveMessageDraft,messageDraftSchema} from '@/lib/message-drafts';
 import {audienceForCampaign,listCampaigns} from '@/lib/campaigns';
 import {generateSequenceDraft} from '@/lib/sequence-draft';
@@ -70,6 +71,7 @@ async function handleGET(req: NextRequest, { params }: {
             const enrollments = enrollmentRows.filter(e => source === 'demo' ? leads.get(e.leadId)?.source === 'demo' : !!leads.get(e.leadId) && leads.get(e.leadId)?.source !== 'demo');
             return NextResponse.json({ source, campaigns: await Promise.all((await listCampaigns()).map(async (c) => ({ ...c, sequence: await getCampaignSequence(c.id), experiment: await experiment(c.id, source,{leads:leadRows,enrollments:enrollmentRows,messages:messageRows,events:eventRows}), enrollments: enrollments.filter(e => e.campaignId === c.id) }))), sequence });
         }
+        if(key==='analytics/sendgrid'){const f=filterSchema.parse(Object.fromEntries(req.nextUrl.searchParams));return NextResponse.json(await sendGridStatistics(f.from||new Date(Date.now()-30*86400000).toISOString().slice(0,10),f.to||new Date().toISOString().slice(0,10)));}
         if (key === 'analytics' || key === 'export') {
             const filters = filterSchema.parse(Object.fromEntries(req.nextUrl.searchParams));
             return key === 'export' ? new NextResponse((await exportCSV(filters)), { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="handos-performance.csv"', 'Cache-Control': 'no-store' } }) : NextResponse.json((await analytics(filters)));

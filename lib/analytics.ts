@@ -1,4 +1,4 @@
-import { deliveryAttempts } from './delivery';
+import { deliveryAttempts,sendGridWebhookKeyValid } from './delivery';
 import { all } from './db';
 import type { Campaign, Enrollment, Message, Metrics, TrackingEvent, Lead } from './types';
 export type Filters = {
@@ -47,7 +47,7 @@ export async function analytics(filters: Filters = {}) {
     const outcomes=cohort.map(m=>{const enrollment=byId.get(m.enrollmentId)!,lead=leads.get(enrollment.leadId);return {messageId:m.id,company:lead?.company||enrollment.leadId,email:lead?.email||'',subject:m.subject,sentAt:m.sentAt,status:statusFor(m)};}).sort((a,b)=>b.sentAt.localeCompare(a.sentAt)).slice(0,100);
     const attemptCounts={attempted:cohort.length,accepted:messages.length,pending:cohort.filter(m=>statusFor(m)==='accepted').length,rejected:cohort.filter(m=>attemptById.get(m.id)?.status==='rejected').length,unknown:cohort.filter(m=>['unknown','sending'].includes(attemptById.get(m.id)?.status||'unknown')).length,sandbox:cohort.filter(m=>attemptById.get(m.id)?.status==='sandbox').length};
     const providerEvents=(await all<TrackingEvent>('events')).filter(e=>e.externalId.startsWith('sendgrid:'));
-    return { metrics, history, breakdown, activity, source, outcomes, attemptCounts, tracking:{provider:process.env.EMAIL_PROVIDER||'demo',signedWebhookConfigured:!!process.env.SENDGRID_WEBHOOK_PUBLIC_KEY,lastWebhookAt:providerEvents.map(e=>e.occurredAt).sort().at(-1)||null},updatedAt: new Date().toISOString() };
+    return { metrics, history, breakdown, activity, source, outcomes, attemptCounts, tracking:{provider:process.env.EMAIL_PROVIDER||'demo',signedWebhookConfigured:sendGridWebhookKeyValid(),lastWebhookAt:providerEvents.map(e=>e.occurredAt).sort().at(-1)||null},updatedAt: new Date().toISOString() };
 }
 export function csvCell(value: unknown) { const text = String(value ?? ''); const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text; return `"${safe.replaceAll('"', '""')}"`; }
 export async function exportCSV(filters: Filters) { const data = (await analytics(filters)); const fields = ['date', 'sent', 'delivered', 'open', 'click', 'reply', 'bounce', 'unsubscribe', 'booked', 'ctr', 'openRate', 'bounceRate', 'replyRate', 'conversionRate', 'cost', 'revenue', 'roi'] as const; return [fields.join(','), ...data.history.map(row => fields.map(k => csvCell(row[k])).join(','))].join('\r\n'); }

@@ -4,7 +4,7 @@ import { generateKeyPairSync, sign } from 'node:crypto';
 process.env.DATABASE_URL = 'file::memory:';
 import { all, get, putLead } from '../lib/db';
 import { enroll } from '../lib/engine';
-import { deliveries, processSendGridEvents, runLiveDue, unsubscribeToken, validUnsubscribe, verifySendGridSignature } from '../lib/delivery';
+import { deliveries, processSendGridEvents, runLiveDue, unsubscribeToken, validUnsubscribe, verifySendGridSignature, sendGridWebhookKeyValid } from '../lib/delivery';
 import { verifyContact } from '../lib/contacts';
 import type { Lead, Message, Enrollment, TrackingEvent } from '../lib/types';
 async function live(id: string) {
@@ -69,6 +69,13 @@ test('signed SendGrid webhook rejects tampering and stale timestamps', () => {
     assert.ok(verifySendGridSignature(raw, timestamp, signature));
     assert.equal(verifySendGridSignature('[1]', timestamp, signature), false);
     assert.equal(verifySendGridSignature(raw, '1', signature), false);
+    assert.ok(sendGridWebhookKeyValid());
+    process.env.SENDGRID_WEBHOOK_PUBLIC_KEY=keys.publicKey.export({type:'spki',format:'pem'}).toString();
+    assert.ok(verifySendGridSignature(raw,timestamp,signature));
+    assert.ok(sendGridWebhookKeyValid());
+    process.env.SENDGRID_WEBHOOK_PUBLIC_KEY='placeholder';
+    assert.equal(sendGridWebhookKeyValid(),false);
+    assert.equal(verifySendGridSignature(raw,timestamp,signature),false);
 });
 test('contact verifier rejects uncertain addresses and saves only deliverable confirmed contacts', async () => {
     const lead = (await live('contact-test'));
